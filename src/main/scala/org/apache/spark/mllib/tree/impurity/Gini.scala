@@ -30,6 +30,23 @@ import org.apache.spark.annotation.{DeveloperApi, Experimental, Since}
 object Gini extends Impurity {
 
   /**
+   * Gini(D)反映了从数据集D中随机取样两个样本，
+   * 其类别标记不一致的概率。因此，Gini(D)越小，
+   * 则数据集D的纯度越高。
+   * Gini impurity can be computed by summing the 
+   * probability f_{i} of an item with label i being 
+   * chosen times the probability 1-f_{i} of a mistake 
+   * in categorizing that item. It reaches its minimum 
+   * (zero) when all cases in the node fall into a 
+   * single target category.
+   *
+   * To compute Gini impurity for a set of items with J 
+   * classes, suppose i\in \{1,2,...,J\}, and let f_{i} 
+   * be the fraction of items labeled with class i in the set.
+
+   * gini(D) = \sum_{i=1}^J f_i(1-f_i) 
+   *         = 1 - \sum_{i=1}^J f_i^2
+   * 
    * :: DeveloperApi ::
    * information calculation for multiclass classification
    * @param counts Array[Double] with counts for each label
@@ -46,6 +63,7 @@ object Gini extends Impurity {
     var impurity = 1.0
     var classIndex = 0
     while (classIndex < numClasses) {
+      // 第classIndex类的样本所占的比例
       val freq = counts(classIndex) / totalCount
       impurity -= freq * freq
       classIndex += 1

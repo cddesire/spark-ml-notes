@@ -68,12 +68,12 @@ import org.apache.spark.mllib.tree.configuration.QuantileStrategy._
  */
 @Since("1.0.0")
 class Strategy @Since("1.3.0") (
-    @Since("1.0.0") @BeanProperty var algo: Algo,
-    @Since("1.0.0") @BeanProperty var impurity: Impurity,
-    @Since("1.0.0") @BeanProperty var maxDepth: Int,
-    @Since("1.2.0") @BeanProperty var numClasses: Int = 2,
-    @Since("1.0.0") @BeanProperty var maxBins: Int = 32,
-    @Since("1.0.0") @BeanProperty var quantileCalculationStrategy: QuantileStrategy = Sort,
+    @Since("1.0.0") @BeanProperty var algo: Algo,  //选择的算法，有分类和回归两种选择
+    @Since("1.0.0") @BeanProperty var impurity: Impurity,  //纯度有熵、基尼系数、方差三种选择
+    @Since("1.0.0") @BeanProperty var maxDepth: Int,    //树的最大深度
+    @Since("1.2.0") @BeanProperty var numClasses: Int = 2,  //分类数
+    @Since("1.0.0") @BeanProperty var maxBins: Int = 32,   //最大子树个数
+    @Since("1.0.0") @BeanProperty var quantileCalculationStrategy: QuantileStrategy = Sort, //保存类别变量以及相应的离散值。一个entry (n ->k) 表示特征n属于k个类别，分别是0,1,...,k-1
     @Since("1.0.0") @BeanProperty var categoricalFeaturesInfo: Map[Int, Int] = Map[Int, Int](),
     @Since("1.2.0") @BeanProperty var minInstancesPerNode: Int = 1,
     @Since("1.2.0") @BeanProperty var minInfoGain: Double = 0.0,
@@ -83,6 +83,7 @@ class Strategy @Since("1.3.0") (
     @Since("1.2.0") @BeanProperty var checkpointInterval: Int = 10) extends Serializable {
 
   /**
+   * 是否为多分类
    */
   @Since("1.2.0")
   def isMulticlassClassification: Boolean = {
@@ -90,6 +91,7 @@ class Strategy @Since("1.3.0") (
   }
 
   /**
+   * 离散特征
    */
   @Since("1.2.0")
   def isMulticlassWithCategoricalFeatures: Boolean = {

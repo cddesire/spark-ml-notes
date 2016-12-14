@@ -57,6 +57,7 @@ class InformationGainStats(
     case _ => false
   }
 
+  // type cast
   override def hashCode: Int = {
     com.google.common.base.Objects.hashCode(
       gain: java.lang.Double,

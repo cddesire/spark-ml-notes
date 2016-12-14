@@ -40,6 +40,10 @@ object Variance extends Impurity {
      throw new UnsupportedOperationException("Variance.calculate")
 
   /**
+   * mean of square minus square of mean
+   * var(X) = frac{1} {n}\sum_{i=1}^{n}(x_i - u)^2
+   *        = \frac{1} {n}\sumx_i^2 - (\frac{1} {n}x_i)^2
+   *
    * :: DeveloperApi ::
    * variance calculation
    * @param count number of instances

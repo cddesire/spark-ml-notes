@@ -31,6 +31,10 @@ import org.apache.spark.mllib.util.MLUtils
  * The log loss is defined as:
  *   2 log(1 + exp(-2 y F(x)))
  * where y is a label in {-1, 1} and F(x) is the model prediction for features x.
+ * 
+ * log likelihood 
+ * sum(yi*log(p) + (1-yi)*log(1-p)) where yi is label in {0, 1}
+ * p = 1 / (1 + exp(-F(x))), p is probability when yi=1  
  */
 @Since("1.2.0")
 @DeveloperApi

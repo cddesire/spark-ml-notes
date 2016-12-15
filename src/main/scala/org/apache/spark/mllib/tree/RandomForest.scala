@@ -201,6 +201,7 @@ private class RandomForest (
 
     // Create an RDD of node Id cache.
     // At first, all the rows belong to the root nodes (node Id == 1).
+    // 节点是否使用缓存，节点 ID 从 1 开始，1 即为这颗树的根节点，左节点为 2，右节点为 3，依次递增下去
     val nodeIdCache = if (strategy.useNodeIdCache) {
       Some(NodeIdCache.init(
         data = baggedInput,
@@ -218,12 +219,15 @@ private class RandomForest (
     rng.setSeed(seed)
 
     // Allocate and queue root nodes.
+    // 创建树的根节点
     val topNodes: Array[Node] = Array.fill[Node](numTrees)(Node.emptyNode(nodeIndex = 1))
+    // 将（树的索引，树的根节点）入队，树索引从 0 开始，根节点从 1 开始
     Range(0, numTrees).foreach(treeIndex => nodeQueue.enqueue((treeIndex, topNodes(treeIndex))))
 
     while (nodeQueue.nonEmpty) {
       // Collect some nodes to split, and choose features for each node (if subsampling).
       // Each group of nodes may come from one or multiple trees, and at multiple levels.
+      // 取得每个树所有需要切分的节点,nodesForGroup表示需要切分的节点
       val (nodesForGroup, treeToNodeToIndexInfo) =
         RandomForest.selectNodesToSplit(nodeQueue, maxMemoryUsage, metadata, rng)
       // Sanity check (should never occur):
@@ -232,6 +236,7 @@ private class RandomForest (
 
       // Choose node splits, and enqueue new nodes as needed.
       timer.start("findBestSplits")
+      // 找出最优切点
       DecisionTree.findBestSplits(baggedInput, metadata, topNodes, nodesForGroup,
         treeToNodeToIndexInfo, splits, bins, nodeQueue, timer, nodeIdCache = nodeIdCache)
       timer.stop("findBestSplits")
@@ -450,6 +455,7 @@ object RandomForest extends Serializable with Logging {
       val featureSubset: Option[Array[Int]]) extends Serializable
 
   /**
+   * 取得每个树所有需要切分的节点
    * Pull nodes off of the queue, and collect a group of nodes to be split on this iteration.
    * This tracks the memory usage for aggregates and stops adding nodes when too much memory
    * will be needed; this allows an adaptive number of nodes since different nodes may require
@@ -473,7 +479,11 @@ object RandomForest extends Serializable with Logging {
       rng: scala.util.Random): (Map[Int, Array[Node]], Map[Int, Map[Int, NodeIndexInfo]]) = {
     // Collect some nodes to split:
     //  nodesForGroup(treeIndex) = nodes to split
+    // nodesForGroup保存需要切分的节点，treeIndex --> nodes
     val mutableNodesForGroup = new mutable.HashMap[Int, mutable.ArrayBuffer[Node]]()
+    // mutableTreeToNodeToIndexInfo保存每个节点中选中特征的索引
+    // treeIndex --> (global) node index --> (node index in group, feature indices)
+    // (global) node index是树中的索引，组中节点索引的范围是[0, numNodesInGroup)
     val mutableTreeToNodeToIndexInfo =
       new mutable.HashMap[Int, mutable.HashMap[Int, NodeIndexInfo]]()
     var memUsage: Long = 0L
@@ -488,6 +498,7 @@ object RandomForest extends Serializable with Logging {
         None
       }
       // Check if enough memory remains to add this node to the group.
+      // 检查是否有足够的内存
       val nodeMemUsage = RandomForest.aggregateSizeForNode(metadata, featureSubset) * 8L
       if (memUsage + nodeMemUsage <= maxMemoryUsage) {
         nodeQueue.dequeue()

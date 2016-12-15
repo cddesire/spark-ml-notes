@@ -126,6 +126,7 @@ private[spark] object DecisionTreeMetadata extends Logging {
     // We check the number of bins here against maxPossibleBins.
     // This needs to be checked here instead of in Strategy since maxPossibleBins can be modified
     // based on the number of training examples.
+    // categoricalFeaturesInfo这个map保存特征的类别信息
     if (strategy.categoricalFeaturesInfo.nonEmpty) {
       val maxCategoriesPerFeature = strategy.categoricalFeaturesInfo.values.max
       val maxCategory =

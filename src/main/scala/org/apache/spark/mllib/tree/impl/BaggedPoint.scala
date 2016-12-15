@@ -44,6 +44,7 @@ private[spark] class BaggedPoint[Datum](val datum: Datum, val subsampleWeights: 
 private[spark] object BaggedPoint {
 
   /**
+   * convertToBaggedRDD 方法使得每棵树就是样本的一个子集
    * Convert an input dataset into its BaggedPoint representation,
    * choosing subsamplingRate counts for each instance.
    * Each subsamplingRate has the same number of instances as the original dataset,

@@ -44,6 +44,7 @@ private[spark] class TreePoint(val label: Double, val binnedFeatures: Array[Int]
 private[spark] object TreePoint {
 
     /**
+      * 转换成树形的 RDD 类型，转换后，所有样本点已经按分裂点条件分到了各自的箱子中
       * Convert an input dataset into its TreePoint representation,
       * binning feature values in preparation for DecisionTree training.
       *

@@ -935,6 +935,11 @@ object DecisionTree extends Serializable with Logging {
   }
 
   /**
+   * 
+   * 对于连续型特征，利用切分点抽样统计简化计算
+   * 对于离散型特征，如果是无序的，则最多有个 splits=2^(numBins-1)-1 划分
+   * 如果是有序的，则最多有 splits=numBins-1 个划分
+   *
    * Returns splits and bins for decision tree calculation.
    * Continuous and categorical features are handled differently.
    *
@@ -975,6 +980,7 @@ object DecisionTree extends Serializable with Logging {
     val continuousFeatures = Range(0, numFeatures).filter(metadata.isContinuous)
     val sampledInput = if (continuousFeatures.nonEmpty) {
       // Calculate the number of samples for approximate quantile calculation.
+      // 采样样本数量，最少有 10000 个
       val requiredSamples = math.max(metadata.maxBins * metadata.maxBins, 10000)
       val fraction = if (requiredSamples < metadata.numExamples) {
         requiredSamples.toDouble / metadata.numExamples
@@ -982,6 +988,7 @@ object DecisionTree extends Serializable with Logging {
         1.0
       }
       logDebug("fraction of data used for calculating quantiles = " + fraction)
+      // 采样数据，有放回采样
       input.sample(withReplacement = false, fraction, new XORShiftRandom().nextInt())
     } else {
       input.sparkContext.emptyRDD[LabeledPoint]
@@ -1004,7 +1011,9 @@ object DecisionTree extends Serializable with Logging {
     def findSplits(
         featureIndex: Int,
         featureSamples: Iterable[Double]): (Int, (Array[Split], Array[Bin])) = {
+      // 每个特征分别对应一组切分点位置，这里splits是有序的
       val splits = {
+        // 返回连续特征的所有切分位置
         val featureSplits = findSplitsForContinuousFeature(
           featureSamples.toArray,
           metadata,
@@ -1013,7 +1022,7 @@ object DecisionTree extends Serializable with Logging {
 
         featureSplits.map(threshold => new Split(featureIndex, threshold, Continuous, Nil))
       }
-
+      // 存放切分点位置对应的箱子信息
       val bins = {
         val lowSplit = new DummyLowSplit(featureIndex, Continuous)
         val highSplit = new DummyHighSplit(featureIndex, Continuous)
@@ -1022,6 +1031,7 @@ object DecisionTree extends Serializable with Logging {
         val allSplits = lowSplit +: splits.toSeq :+ highSplit
 
         // slide across the split points pairwise to allocate the bins
+        // 将切分点两两结合成一个箱子
         allSplits.sliding(2).map {
           case Seq(left, right) => new Bin(left, right, Continuous, Double.MinValue)
         }.toArray
@@ -1062,8 +1072,9 @@ object DecisionTree extends Serializable with Logging {
         // For unordered categorical features, there is no need to construct the bins.
         // since there is a one-to-one correspondence between the splits and the bins.
         (split.toArray, Array.empty[Bin])
-
+        // 处理离散特征且有序的情况
       case i if metadata.isCategorical(i) =>
+        // 有序特征无需处理，箱子与特征值对应
         // Ordered features
         //   Bins correspond to feature values, so we do not need to compute splits or bins
         //   beforehand.  Splits are constructed as needed during training.
@@ -1117,21 +1128,26 @@ object DecisionTree extends Serializable with Logging {
       "findSplitsForContinuousFeature can only be used to find splits for a continuous feature.")
 
     val splits = {
+       // 切分数是bin的数量减1，即m-1
       val numSplits = metadata.numSplits(featureIndex)
 
       // get count for each distinct value
+      // 特征，特征出现的次数）
       val valueCountMap = featureSamples.foldLeft(Map.empty[Double, Int]) { (m, x) =>
         m + ((x, m.getOrElse(x, 0) + 1))
       }
       // sort distinct values
+      // 根据特征进行排序
       val valueCounts = valueCountMap.toSeq.sortBy(_._1).toArray
 
       // if possible splits is not enough or just enough, just return all possible splits
       val possibleSplits = valueCounts.length
+      // 如果特征数小于切分数，所有特征均作为切分点 
       if (possibleSplits <= numSplits) {
         valueCounts.map(_._1)
       } else {
         // stride between splits
+        // 切分点之间的步长
         val stride: Double = featureSamples.length.toDouble / (numSplits + 1)
         logDebug("stride = " + stride)
 
@@ -1139,11 +1155,13 @@ object DecisionTree extends Serializable with Logging {
         val splitsBuilder = Array.newBuilder[Double]
         var index = 1
         // currentCount: sum of counts of values that have been visited
+        //第一个特征的出现次数
         var currentCount = valueCounts(0)._2
         // targetCount: target value for `currentCount`.
         // If `currentCount` is closest value to `targetCount`,
         // then current value is a split threshold.
         // After finding a split threshold, `targetCount` is added by stride.
+        // 如果currentCount离targetCount最近，那么当前值是切分点
         var targetCount = stride
         while (index < valueCounts.length) {
           val previousCount = currentCount

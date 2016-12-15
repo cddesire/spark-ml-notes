@@ -40,9 +40,9 @@ import org.apache.spark.rdd.RDD
 private[spark] class DecisionTreeMetadata(
     val numFeatures: Int,
     val numExamples: Long,
-    val numClasses: Int,
+    val numClasses: Int,  // 
     val maxBins: Int,
-    val featureArity: Map[Int, Int],
+    val featureArity: Map[Int, Int],  // categorical feature
     val unorderedFeatures: Set[Int],
     val numBins: Array[Int],
     val impurity: Impurity,
@@ -139,8 +139,9 @@ private[spark] object DecisionTreeMetadata extends Logging {
 
     val unorderedFeatures = new mutable.HashSet[Int]()
     val numBins = Array.fill[Int](numFeatures)(maxPossibleBins)
+    // Multiclass classification
     if (numClasses > 2) {
-      // Multiclass classification
+      // M-1 = log_2^{B+1}	
       val maxCategoriesForUnorderedFeature =
         ((math.log(maxPossibleBins / 2 + 1) / math.log(2.0)) + 1).floor.toInt
       strategy.categoricalFeaturesInfo.foreach { case (featureIndex, numCategories) =>
@@ -151,6 +152,7 @@ private[spark] object DecisionTreeMetadata extends Logging {
           //  which require 2 * ((1 << numCategories - 1) - 1) bins.
           // We do this check with log values to prevent overflows in case numCategories is large.
           // The next check is equivalent to: 2 * ((1 << numCategories - 1) - 1) <= maxBins
+          // 2^(M-1) - 1
           if (numCategories <= maxCategoriesForUnorderedFeature) {
             unorderedFeatures.add(featureIndex)
             numBins(featureIndex) = numUnorderedBins(numCategories)
@@ -159,8 +161,7 @@ private[spark] object DecisionTreeMetadata extends Logging {
           }
         }
       }
-    } else {
-      // Binary classification or regression
+    } else {  // Binary classification or regression
       strategy.categoricalFeaturesInfo.foreach { case (featureIndex, numCategories) =>
         // If a categorical feature has only 1 category, we treat it as continuous: SPARK-9957
         if (numCategories > 1) {
@@ -183,8 +184,11 @@ private[spark] object DecisionTreeMetadata extends Logging {
         }
       case _ => featureSubsetStrategy
     }
+
+    // k=log2(d)、k=sqrt(d)  classification
+    // k=d/3  regression
     val numFeaturesPerNode: Int = _featureSubsetStrategy match {
-      case "all" => numFeatures
+      case "all" => numFeatures  // k=d
       case "sqrt" => math.sqrt(numFeatures).ceil.toInt
       case "log2" => math.max(1, (math.log(numFeatures) / math.log(2)).ceil.toInt)
       case "onethird" => (numFeatures / 3.0).ceil.toInt

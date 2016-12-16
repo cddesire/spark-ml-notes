@@ -26,7 +26,8 @@ import org.apache.spark.SparkException
 
 /**
  * Class that represents the features and labels of a data point.
- *
+ * features are vector
+ * 
  * @param label Label for this data point.
  * @param features List of features for this data point.
  */

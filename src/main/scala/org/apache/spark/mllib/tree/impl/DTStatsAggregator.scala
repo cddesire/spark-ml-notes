@@ -77,7 +77,6 @@ private[spark] class DTStatsAggregator(
    */
   private val allStats: Array[Double] = new Array[Double](allStatsSize)
 
-
   /**
    * Get an [[ImpurityCalculator]] for a given (node, feature, bin).
    * @param featureOffset  For ordered features, this is a pre-computed (node, feature) offset

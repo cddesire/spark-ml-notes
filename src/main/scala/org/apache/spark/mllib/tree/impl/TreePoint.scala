@@ -61,7 +61,6 @@ private[spark] object TreePoint {
         var featureIndex = 0
         // 特征值的不同个数
         while (featureIndex < metadata.numFeatures) {
-        	// categorical feature
             featureArity(featureIndex) = metadata.featureArity.getOrElse(featureIndex, 0)
             featureIndex += 1
         }
@@ -126,7 +125,6 @@ private[spark] object TreePoint {
         }
         // 连续特征
         if (featureArity == 0) {
-            // Perform binary search for finding bin for continuous features.
             val binIndex = binarySearchForBins()
             if (binIndex == -1) {
                 throw new RuntimeException("No bin was found for continuous feature." +

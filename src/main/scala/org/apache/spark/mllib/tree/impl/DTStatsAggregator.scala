@@ -19,8 +19,6 @@ package org.apache.spark.mllib.tree.impl
 
 import org.apache.spark.mllib.tree.impurity._
 
-
-
 /**
  * DecisionTree statistics aggregator for a node.
  * This holds a flat array of statistics for a set of (features, bins)

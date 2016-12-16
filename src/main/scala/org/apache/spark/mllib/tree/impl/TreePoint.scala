@@ -53,15 +53,15 @@ private[spark] object TreePoint {
       * @param metadata Learning and dataset metadata
       * @return TreePoint dataset representation
       */
-    def convertToTreeRDD(
-                                input: RDD[LabeledPoint],
-                                bins: Array[Array[Bin]],
-                                metadata: DecisionTreeMetadata): RDD[TreePoint] = {
+    def convertToTreeRDD(input: RDD[LabeledPoint],
+                         bins: Array[Array[Bin]],
+                         metadata: DecisionTreeMetadata): RDD[TreePoint] = {
         // Construct arrays for featureArity for efficiency in the inner loop.
         val featureArity: Array[Int] = new Array[Int](metadata.numFeatures)
         var featureIndex = 0
         // 特征值的不同个数
         while (featureIndex < metadata.numFeatures) {
+        	// categorical feature
             featureArity(featureIndex) = metadata.featureArity.getOrElse(featureIndex, 0)
             featureIndex += 1
         }
@@ -74,13 +74,12 @@ private[spark] object TreePoint {
       * Convert one LabeledPoint into its TreePoint representation.
       *
       * @param bins         Bins for features, of size (numFeatures, numBins).
-      * @param featureArity Array indexed by feature, with value 0 for continuous and numCategories
-      *                     for categorical features.
+      * @param featureArity Array indexed by feature, with value 0 for continuous 
+      *						and numCategories for categorical features.
       */
-    private def labeledPointToTreePoint(
-                                               labeledPoint: LabeledPoint,
-                                               bins: Array[Array[Bin]],
-                                               featureArity: Array[Int]): TreePoint = {
+    private def labeledPointToTreePoint(labeledPoint: LabeledPoint,
+                                        bins: Array[Array[Bin]],
+                                        featureArity: Array[Int]): TreePoint = {
         val numFeatures = labeledPoint.features.size
         val arr = new Array[Int](numFeatures)
         var featureIndex = 0
@@ -98,12 +97,10 @@ private[spark] object TreePoint {
       * @param featureArity 0 for continuous features; number of categories for categorical features.
       * @param bins         Bins for features, of size (numFeatures, numBins).
       */
-    private def findBin(
-                               featureIndex: Int,
-                               labeledPoint: LabeledPoint,
-                               featureArity: Int,
-                               bins: Array[Array[Bin]]): Int = {
-
+    private def findBin(featureIndex: Int,
+                        labeledPoint: LabeledPoint,
+                        featureArity: Int,
+                        bins: Array[Array[Bin]]): Int = {
         /**
           * Binary search helper method for continuous feature.
           */
@@ -127,7 +124,7 @@ private[spark] object TreePoint {
             }
             -1
         }
-
+        // 连续特征
         if (featureArity == 0) {
             // Perform binary search for finding bin for continuous features.
             val binIndex = binarySearchForBins()
@@ -137,8 +134,9 @@ private[spark] object TreePoint {
                         s" Feature index: $featureIndex.  Feature value: ${labeledPoint.features(featureIndex)}")
             }
             binIndex
-        } else {
+        } else { // 离散特征
             // Categorical feature bins are indexed by feature values.
+            // labeledPoint.features return Vector
             val featureValue = labeledPoint.features(featureIndex)
             if (featureValue < 0 || featureValue >= featureArity) {
                 throw new IllegalArgumentException(

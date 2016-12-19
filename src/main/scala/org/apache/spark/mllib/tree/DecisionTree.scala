@@ -428,6 +428,7 @@ object DecisionTree extends Serializable with Logging {
   }
 
   /**
+   * 找到切分点（splits）及箱子信息（Bins）
    * Given a group of nodes, this finds the best split for each node.
    *
    * @param input Training data: RDD of [[org.apache.spark.mllib.tree.impl.TreePoint]]
@@ -578,6 +579,7 @@ object DecisionTree extends Serializable with Logging {
     }
 
     // array of nodes to train indexed by node index in group
+    // 所有可切分的节点
     val nodes = new Array[Node](numNodes)
     nodesForGroup.foreach { case (treeIndex, nodesForTree) =>
       nodesForTree.foreach { node =>
@@ -594,6 +596,7 @@ object DecisionTree extends Serializable with Logging {
     // stats of a node will be shuffled to a particular partition and be combined together,
     // then best splits for nodes are found there.
     // Finally, only best Splits for nodes are collected to driver to construct decision tree.
+    // 获取节点对应的特征
     val nodeToFeatures = getNodeToFeatures(treeToNodeToIndexInfo)
     val nodeToFeaturesBc = input.sparkContext.broadcast(nodeToFeatures)
 
@@ -602,13 +605,16 @@ object DecisionTree extends Serializable with Logging {
         // Construct a nodeStatsAggregators array to hold node aggregate stats,
         // each node will have a nodeStatsAggregator
         val nodeStatsAggregators = Array.tabulate(numNodes) { nodeIndex =>
+          // 节点对应的特征集
           val featuresForNode = nodeToFeaturesBc.value.flatMap { nodeToFeatures =>
             Some(nodeToFeatures(nodeIndex))
           }
+          // DTStatsAggregator，其中引用了 ImpurityAggregator，给出计算不纯度 impurity 的逻辑
           new DTStatsAggregator(metadata, featuresForNode)
         }
 
         // iterator all instances in current partition and update aggregate stats
+        // 迭代当前分区的所有对象，更新聚合统计信息，统计信息即采样数据的权重值
         points.foreach(binSeqOpWithNodeIdCache(nodeStatsAggregators, _))
 
         // transform nodeStatsAggregators array to (nodeIndex, nodeAggregateStats) pairs,
@@ -620,6 +626,7 @@ object DecisionTree extends Serializable with Logging {
         // Construct a nodeStatsAggregators array to hold node aggregate stats,
         // each node will have a nodeStatsAggregator
         val nodeStatsAggregators = Array.tabulate(numNodes) { nodeIndex =>
+          // 节点对应的特征集
           val featuresForNode = nodeToFeaturesBc.value.flatMap { nodeToFeatures =>
             Some(nodeToFeatures(nodeIndex))
           }
@@ -627,6 +634,7 @@ object DecisionTree extends Serializable with Logging {
         }
 
         // iterator all instances in current partition and update aggregate stats
+        // 迭代当前分区的所有对象，更新聚合统计信息
         points.foreach(binSeqOp(nodeStatsAggregators, _))
 
         // transform nodeStatsAggregators array to (nodeIndex, nodeAggregateStats) pairs,
@@ -789,10 +797,10 @@ object DecisionTree extends Serializable with Logging {
    * @return tuple for best split: (Split, information gain, prediction at node)
    */
   private[tree] def binsToBestSplit(
-      binAggregates: DTStatsAggregator,
-      splits: Array[Array[Split]],
-      featuresForNode: Option[Array[Int]],
-      node: Node): (Split, InformationGainStats, Predict) = {
+                        binAggregates: DTStatsAggregator,
+                        splits: Array[Array[Split]],
+                        featuresForNode: Option[Array[Int]],
+                        node: Node): (Split, InformationGainStats, Predict) = {
 
     // calculate predict and impurity if current node is top node
     val level = Node.indexToLevel(node.id)
@@ -974,11 +982,13 @@ object DecisionTree extends Serializable with Logging {
     val numFeatures = metadata.numFeatures
 
     // Sample the input only if there are continuous features.
+    // 判断特征中是否存在连续特征
     val continuousFeatures = Range(0, numFeatures).filter(metadata.isContinuous)
     val sampledInput = if (continuousFeatures.nonEmpty) {
       // Calculate the number of samples for approximate quantile calculation.
       // 采样样本数量，最少有 10000 个
       val requiredSamples = math.max(metadata.maxBins * metadata.maxBins, 10000)
+      // 计算采样比例
       val fraction = if (requiredSamples < metadata.numExamples) {
         requiredSamples.toDouble / metadata.numExamples
       } else {
@@ -1001,6 +1011,10 @@ object DecisionTree extends Serializable with Logging {
     }
   }
 
+  /**
+   * Sort分裂策略的实现
+   *
+   */
   private def findSplitsBinsBySorting(
       input: RDD[LabeledPoint],
       metadata: DecisionTreeMetadata,
@@ -1021,7 +1035,9 @@ object DecisionTree extends Serializable with Logging {
       }
       // 存放切分点位置对应的箱子信息
       val bins = {
+        // 采用最小阈值 Double.MinValue 作为最左边的分裂位置并进行装箱
         val lowSplit = new DummyLowSplit(featureIndex, Continuous)
+        // 最后一个箱子的计算采用最大阈值 Double.MaxValue 作为最右边的切分位置
         val highSplit = new DummyHighSplit(featureIndex, Continuous)
 
         // tack the dummy splits on either side of the computed splits
@@ -1051,12 +1067,14 @@ object DecisionTree extends Serializable with Logging {
     }
 
     val numFeatures = metadata.numFeatures
+    // 遍历所有特征
     val (splits, bins) = Range(0, numFeatures).unzip {
+      // 处理连续特征的情况
       case i if metadata.isContinuous(i) =>
         val (split, bin) = continuousSplits(i)
         metadata.setNumSplits(i, split.length)
         (split, bin)
-
+      // 处理离散特征且无序的情况 
       case i if metadata.isCategorical(i) && metadata.isUnordered(i) =>
         // Unordered features
         // 2^(maxFeatureValue - 1) - 1 combinations

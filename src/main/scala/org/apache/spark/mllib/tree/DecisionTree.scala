@@ -448,16 +448,16 @@ object DecisionTree extends Serializable with Logging {
    *                    the node stat aggregation phase.
    */
   private[tree] def findBestSplits(
-      input: RDD[BaggedPoint[TreePoint]],
-      metadata: DecisionTreeMetadata,
-      topNodes: Array[Node],
-      nodesForGroup: Map[Int, Array[Node]],
-      treeToNodeToIndexInfo: Map[Int, Map[Int, NodeIndexInfo]],
-      splits: Array[Array[Split]],
-      bins: Array[Array[Bin]],
-      nodeQueue: mutable.Queue[(Int, Node)],
-      timer: TimeTracker = new TimeTracker,
-      nodeIdCache: Option[NodeIdCache] = None): Unit = {
+                            input: RDD[BaggedPoint[TreePoint]],
+                            metadata: DecisionTreeMetadata,
+                            topNodes: Array[Node],
+                            nodesForGroup: Map[Int, Array[Node]],
+                            treeToNodeToIndexInfo: Map[Int, Map[Int, NodeIndexInfo]],
+                            splits: Array[Array[Split]],
+                            bins: Array[Array[Bin]],
+                            nodeQueue: mutable.Queue[(Int, Node)],
+                            timer: TimeTracker = new TimeTracker,
+                            nodeIdCache: Option[NodeIdCache] = None): Unit = {
 
     /*
      * The high-level descriptions of the best split optimizations are noted here.

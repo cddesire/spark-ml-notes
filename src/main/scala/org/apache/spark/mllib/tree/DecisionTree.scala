@@ -803,6 +803,7 @@ object DecisionTree extends Serializable with Logging {
                         node: Node): (Split, InformationGainStats, Predict) = {
 
     // calculate predict and impurity if current node is top node
+    // 如果当前节点是根节点，计算预测和不纯度
     val level = Node.indexToLevel(node.id)
     var predictWithImpurity: Option[(Predict, Double)] = if (level == 0) {
       None
@@ -811,6 +812,7 @@ object DecisionTree extends Serializable with Logging {
     }
 
     // For each (feature, split), calculate the gain, and select the best (feature, split).
+    // 对各特征及切分点，计算其信息增益并从中选择最优 (feature, split)
     val (bestSplit, bestSplitStats) =
       Range(0, binAggregates.metadata.numFeaturesPerNode).map { featureIndexIdx =>
         val featureIndex = if (featuresForNode.nonEmpty) {
@@ -819,6 +821,7 @@ object DecisionTree extends Serializable with Logging {
           featureIndexIdx
         }
         val numSplits = binAggregates.metadata.numSplits(featureIndex)
+        // 特征为连续值的情况
         if (binAggregates.metadata.isContinuous(featureIndex)) {
           // Cumulative sum (scanLeft) of bin statistics.
           // Afterwards, binAggregates for a bin is the sum of aggregates for
@@ -832,18 +835,23 @@ object DecisionTree extends Serializable with Logging {
           // Find best split.
           val (bestFeatureSplitIndex, bestFeatureGainStats) =
             Range(0, numSplits).map { case splitIdx =>
+              // 计算 leftChild 及 rightChild 子节点的 impurity
               val leftChildStats = binAggregates.getImpurityCalculator(nodeFeatureOffset, splitIdx)
               val rightChildStats =
                 binAggregates.getImpurityCalculator(nodeFeatureOffset, numSplits)
               rightChildStats.subtract(leftChildStats)
+              // impurity 的预测值，采用的是平均值计算
               predictWithImpurity = Some(predictWithImpurity.getOrElse(
                 calculatePredictImpurity(leftChildStats, rightChildStats)))
+              // 求信息增益 information gain 值，用于评估切分点是否最优
               val gainStats = calculateGainForSplit(leftChildStats,
                 rightChildStats, binAggregates.metadata, predictWithImpurity.get._2)
               (splitIdx, gainStats)
             }.maxBy(_._2.gain)
           (splits(featureIndex)(bestFeatureSplitIndex), bestFeatureGainStats)
-        } else if (binAggregates.metadata.isUnordered(featureIndex)) {
+        } 
+        // 无序离散特征时的情况
+        else if (binAggregates.metadata.isUnordered(featureIndex)) {
           // Unordered categorical feature
           val (leftChildOffset, rightChildOffset) =
             binAggregates.getLeftRightFeatureOffsets(featureIndexIdx)
@@ -859,7 +867,7 @@ object DecisionTree extends Serializable with Logging {
               (splitIndex, gainStats)
             }.maxBy(_._2.gain)
           (splits(featureIndex)(bestFeatureSplitIndex), bestFeatureGainStats)
-        } else {
+        } else {   // 有序离散特征时的情况
           // Ordered categorical feature
           val nodeFeatureOffset = binAggregates.getFeatureOffset(featureIndexIdx)
           val numBins = binAggregates.metadata.numBins(featureIndex)
@@ -870,6 +878,7 @@ object DecisionTree extends Serializable with Logging {
            *
            * centroidForCategories is a list: (category, centroid)
            */
+           // 多元分类时的情况
           val centroidForCategories = Range(0, numBins).map { case featureValue =>
             val categoryStats =
               binAggregates.getImpurityCalculator(nodeFeatureOffset, featureValue)
@@ -882,7 +891,7 @@ object DecisionTree extends Serializable with Logging {
                 // For categorical variables in binary classification,
                 // the bins are ordered by the count of class 1.
                 categoryStats.stats(1)
-              } else {
+              } else { 
                 // For categorical variables in regression,
                 // the bins are ordered by the prediction.
                 categoryStats.predict
@@ -898,8 +907,7 @@ object DecisionTree extends Serializable with Logging {
           // bins sorted by centroids
           val categoriesSortedByCentroid = centroidForCategories.toList.sortBy(_._2)
 
-          logDebug("Sorted centroids for categorical variable = " +
-            categoriesSortedByCentroid.mkString(","))
+          logDebug("Sorted centroids for categorical variable = " + categoriesSortedByCentroid.mkString(","))
 
           // Cumulative sum (scanLeft) of bin statistics.
           // Afterwards, binAggregates for a bin is the sum of aggregates for
@@ -908,12 +916,14 @@ object DecisionTree extends Serializable with Logging {
           while (splitIndex < numSplits) {
             val currentCategory = categoriesSortedByCentroid(splitIndex)._1
             val nextCategory = categoriesSortedByCentroid(splitIndex + 1)._1
+            // 将两个箱子的状态信息进行合并
             binAggregates.mergeForFeature(nodeFeatureOffset, nextCategory, currentCategory)
             splitIndex += 1
           }
           // lastCategory = index of bin with total aggregates for this (node, feature)
           val lastCategory = categoriesSortedByCentroid.last._1
           // Find best split.
+          // 通过信息增益值选择最优切分点
           val (bestFeatureSplitIndex, bestFeatureGainStats) =
             Range(0, numSplits).map { splitIndex =>
               val featureValue = categoriesSortedByCentroid(splitIndex)._1

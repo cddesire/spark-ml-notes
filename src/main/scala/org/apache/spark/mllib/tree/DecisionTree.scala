@@ -737,8 +737,7 @@ object DecisionTree extends Serializable with Logging {
 
     // If left child or right child doesn't satisfy minimum instances per node,
     // then this split is invalid, return invalid information gain stats.
-    if ((leftCount < metadata.minInstancesPerNode) ||
-        (rightCount < metadata.minInstancesPerNode)) {
+    if ((leftCount < metadata.minInstancesPerNode) || (rightCount < metadata.minInstancesPerNode)) {
       return InformationGainStats.invalidInformationGainStats
     }
 

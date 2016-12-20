@@ -400,10 +400,10 @@ object DecisionTree extends Serializable with Logging {
    * @param instanceWeight  Weight (importance) of instance in dataset.
    */
   private def orderedBinSeqOp(
-      agg: DTStatsAggregator,
-      treePoint: TreePoint,
-      instanceWeight: Double,
-      featuresForNode: Option[Array[Int]]): Unit = {
+                              agg: DTStatsAggregator,
+                              treePoint: TreePoint,
+                              instanceWeight: Double,
+                              featuresForNode: Option[Array[Int]]): Unit = {
     val label = treePoint.label
 
     // Iterate over features.
@@ -504,10 +504,10 @@ object DecisionTree extends Serializable with Logging {
      * @param baggedPoint Data point being aggregated.
      */
     def nodeBinSeqOp(
-        treeIndex: Int,
-        nodeInfo: RandomForest.NodeIndexInfo,
-        agg: Array[DTStatsAggregator],
-        baggedPoint: BaggedPoint[TreePoint]): Unit = {
+                    treeIndex: Int,
+                    nodeInfo: RandomForest.NodeIndexInfo,
+                    agg: Array[DTStatsAggregator],
+                    baggedPoint: BaggedPoint[TreePoint]): Unit = {
       if (nodeInfo != null) {
         val aggNodeIndex = nodeInfo.nodeIndexInGroup
         val featuresForNode = nodeInfo.featureSubset

@@ -341,12 +341,12 @@ object DecisionTree extends Serializable with Logging {
    * @param instanceWeight  Weight (importance) of instance in dataset.
    */
   private def mixedBinSeqOp(
-      agg: DTStatsAggregator,
-      treePoint: TreePoint,
-      splits: Array[Array[Split]],
-      unorderedFeatures: Set[Int],
-      instanceWeight: Double,
-      featuresForNode: Option[Array[Int]]): Unit = {
+                            agg: DTStatsAggregator,
+                            treePoint: TreePoint,
+                            splits: Array[Array[Split]],
+                            unorderedFeatures: Set[Int],
+                            instanceWeight: Double,
+                            featuresForNode: Option[Array[Int]]): Unit = {
     val numFeaturesPerNode = if (featuresForNode.nonEmpty) {
       // Use subsampled features
       featuresForNode.get.size

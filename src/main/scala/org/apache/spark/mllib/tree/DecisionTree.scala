@@ -658,8 +658,7 @@ object DecisionTree extends Serializable with Logging {
     timer.stop("chooseSplits")
 
     val nodeIdUpdaters = if (nodeIdCache.nonEmpty) {
-      Array.fill[mutable.Map[Int, NodeIndexUpdater]](
-        metadata.numTrees)(mutable.Map[Int, NodeIndexUpdater]())
+      Array.fill[mutable.Map[Int, NodeIndexUpdater]](metadata.numTrees)(mutable.Map[Int, NodeIndexUpdater]())
     } else {
       null
     }
@@ -729,10 +728,10 @@ object DecisionTree extends Serializable with Logging {
    * @return information gain and statistics for split
    */
   private def calculateGainForSplit(
-      leftImpurityCalculator: ImpurityCalculator,
-      rightImpurityCalculator: ImpurityCalculator,
-      metadata: DecisionTreeMetadata,
-      impurity: Double): InformationGainStats = {
+                                    leftImpurityCalculator: ImpurityCalculator,
+                                    rightImpurityCalculator: ImpurityCalculator,
+                                    metadata: DecisionTreeMetadata,
+                                    impurity: Double): InformationGainStats = {
     val leftCount = leftImpurityCalculator.count
     val rightCount = rightImpurityCalculator.count
 

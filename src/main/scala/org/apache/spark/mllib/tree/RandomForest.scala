@@ -92,7 +92,7 @@ private class RandomForest (
        On the master node:
          - Some number of nodes are pulled off of the queue (based on the amount of memory
            required for their sufficient statistics).
-         - For random forests, if featureSubsetStrategy is not "all," then a subset of candidate
+         - For random forests, if featureSubsetStrategy is not "all", then a subset of candidate
            features are chosen for each node.  See method selectNodesToSplit().
        On worker nodes, via method findBestSplits():
          - The worker makes one pass over its subset of instances.

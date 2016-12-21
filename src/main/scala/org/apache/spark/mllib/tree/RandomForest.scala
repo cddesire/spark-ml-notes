@@ -66,11 +66,11 @@ import org.apache.spark.util.random.SamplingUtils
  * @param seed Random seed for bootstrapping and choosing feature subsets.
  */
 private class RandomForest (
-    private val strategy: Strategy,
-    private val numTrees: Int,
-    featureSubsetStrategy: String,
-    private val seed: Int)
-  extends Serializable with Logging {
+                            private val strategy: Strategy,
+                            private val numTrees: Int,
+                            featureSubsetStrategy: String,
+                            private val seed: Int)
+                          extends Serializable with Logging {
 
   /*
      ALGORITHM

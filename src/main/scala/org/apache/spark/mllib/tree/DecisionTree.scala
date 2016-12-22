@@ -105,10 +105,10 @@ object DecisionTree extends Serializable with Logging {
    */
   @Since("1.0.0")
   def train(
-      input: RDD[LabeledPoint],
-      algo: Algo,
-      impurity: Impurity,
-      maxDepth: Int): DecisionTreeModel = {
+            input: RDD[LabeledPoint],
+            algo: Algo,
+            impurity: Impurity,
+            maxDepth: Int): DecisionTreeModel = {
     val strategy = new Strategy(algo, impurity, maxDepth)
     new DecisionTree(strategy).run(input)
   }

@@ -38,20 +38,20 @@ import org.apache.spark.rdd.RDD
  * @param numBins  Number of bins for each feature.
  */
 private[spark] class DecisionTreeMetadata(
-    val numFeatures: Int,
-    val numExamples: Long,
-    val numClasses: Int,  // 
-    val maxBins: Int,
-    val featureArity: Map[Int, Int],  // categorical feature
-    val unorderedFeatures: Set[Int],
-    val numBins: Array[Int],
-    val impurity: Impurity,
-    val quantileStrategy: QuantileStrategy,
-    val maxDepth: Int,
-    val minInstancesPerNode: Int,
-    val minInfoGain: Double,
-    val numTrees: Int,
-    val numFeaturesPerNode: Int) extends Serializable {
+                                            val numFeatures: Int,
+                                            val numExamples: Long,
+                                            val numClasses: Int,
+                                            val maxBins: Int,
+                                            val featureArity: Map[Int, Int],  // categorical feature
+                                            val unorderedFeatures: Set[Int],
+                                            val numBins: Array[Int],
+                                            val impurity: Impurity,
+                                            val quantileStrategy: QuantileStrategy,
+                                            val maxDepth: Int,
+                                            val minInstancesPerNode: Int,
+                                            val minInfoGain: Double,
+                                            val numTrees: Int,
+                                            val numFeaturesPerNode: Int) extends Serializable {
 
   def isUnordered(featureIndex: Int): Boolean = unorderedFeatures.contains(featureIndex)
 

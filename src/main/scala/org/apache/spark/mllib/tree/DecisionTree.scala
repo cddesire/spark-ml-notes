@@ -167,14 +167,14 @@ object DecisionTree extends Serializable with Logging {
    */
   @Since("1.0.0")
   def train(
-      input: RDD[LabeledPoint],
-      algo: Algo,
-      impurity: Impurity,
-      maxDepth: Int,
-      numClasses: Int,
-      maxBins: Int,
-      quantileCalculationStrategy: QuantileStrategy,
-      categoricalFeaturesInfo: Map[Int, Int]): DecisionTreeModel = {
+	      input: RDD[LabeledPoint],
+	      algo: Algo,
+	      impurity: Impurity,
+	      maxDepth: Int,
+	      numClasses: Int,
+	      maxBins: Int,
+	      quantileCalculationStrategy: QuantileStrategy,
+	      categoricalFeaturesInfo: Map[Int, Int]): DecisionTreeModel = {
     val strategy = new Strategy(algo, impurity, maxDepth, numClasses, maxBins,
       quantileCalculationStrategy, categoricalFeaturesInfo)
     new DecisionTree(strategy).run(input)
@@ -200,12 +200,12 @@ object DecisionTree extends Serializable with Logging {
    */
   @Since("1.1.0")
   def trainClassifier(
-      input: RDD[LabeledPoint],
-      numClasses: Int,
-      categoricalFeaturesInfo: Map[Int, Int],
-      impurity: String,
-      maxDepth: Int,
-      maxBins: Int): DecisionTreeModel = {
+				      input: RDD[LabeledPoint],
+				      numClasses: Int,
+				      categoricalFeaturesInfo: Map[Int, Int],
+				      impurity: String,
+				      maxDepth: Int,
+				      maxBins: Int): DecisionTreeModel = {
     val impurityType = Impurities.fromString(impurity)
     train(input, Classification, impurityType, maxDepth, numClasses, maxBins, Sort,
       categoricalFeaturesInfo)
@@ -216,12 +216,12 @@ object DecisionTree extends Serializable with Logging {
    */
   @Since("1.1.0")
   def trainClassifier(
-      input: JavaRDD[LabeledPoint],
-      numClasses: Int,
-      categoricalFeaturesInfo: java.util.Map[java.lang.Integer, java.lang.Integer],
-      impurity: String,
-      maxDepth: Int,
-      maxBins: Int): DecisionTreeModel = {
+			      input: JavaRDD[LabeledPoint],
+			      numClasses: Int,
+			      categoricalFeaturesInfo: java.util.Map[java.lang.Integer, java.lang.Integer],
+			      impurity: String,
+			      maxDepth: Int,
+			      maxBins: Int): DecisionTreeModel = {
     trainClassifier(input.rdd, numClasses,
       categoricalFeaturesInfo.asInstanceOf[java.util.Map[Int, Int]].asScala.toMap,
       impurity, maxDepth, maxBins)
@@ -246,11 +246,11 @@ object DecisionTree extends Serializable with Logging {
    */
   @Since("1.1.0")
   def trainRegressor(
-      input: RDD[LabeledPoint],
-      categoricalFeaturesInfo: Map[Int, Int],
-      impurity: String,
-      maxDepth: Int,
-      maxBins: Int): DecisionTreeModel = {
+			      input: RDD[LabeledPoint],
+			      categoricalFeaturesInfo: Map[Int, Int],
+			      impurity: String,
+			      maxDepth: Int,
+			      maxBins: Int): DecisionTreeModel = {
     val impurityType = Impurities.fromString(impurity)
     train(input, Regression, impurityType, maxDepth, 0, maxBins, Sort, categoricalFeaturesInfo)
   }
@@ -260,11 +260,11 @@ object DecisionTree extends Serializable with Logging {
    */
   @Since("1.1.0")
   def trainRegressor(
-      input: JavaRDD[LabeledPoint],
-      categoricalFeaturesInfo: java.util.Map[java.lang.Integer, java.lang.Integer],
-      impurity: String,
-      maxDepth: Int,
-      maxBins: Int): DecisionTreeModel = {
+		      input: JavaRDD[LabeledPoint],
+		      categoricalFeaturesInfo: java.util.Map[java.lang.Integer, java.lang.Integer],
+		      impurity: String,
+		      maxDepth: Int,
+		      maxBins: Int): DecisionTreeModel = {
     trainRegressor(input.rdd,
       categoricalFeaturesInfo.asInstanceOf[java.util.Map[Int, Int]].asScala.toMap,
       impurity, maxDepth, maxBins)
@@ -286,10 +286,10 @@ object DecisionTree extends Serializable with Logging {
    *                group of nodes on one call to [[findBestSplits()]].
    */
   private def predictNodeIndex(
-      node: Node,
-      binnedFeatures: Array[Int],
-      bins: Array[Array[Bin]],
-      unorderedFeatures: Set[Int]): Int = {
+						      node: Node,
+						      binnedFeatures: Array[Int],
+						      bins: Array[Array[Bin]],
+						      unorderedFeatures: Set[Int]): Int = {
     if (node.isLeaf || node.split.isEmpty) {
       // Node is either leaf, or has not yet been split.
       node.id

@@ -347,6 +347,7 @@ object DecisionTree extends Serializable with Logging {
                             unorderedFeatures: Set[Int],
                             instanceWeight: Double,
                             featuresForNode: Option[Array[Int]]): Unit = {
+  	// 每个node的特征数目
     val numFeaturesPerNode = if (featuresForNode.nonEmpty) {
       // Use subsampled features
       featuresForNode.get.size
@@ -354,6 +355,7 @@ object DecisionTree extends Serializable with Logging {
       // Use all features
       agg.metadata.numFeatures
     }
+
     // Iterate over features.
     var featureIndexIdx = 0
     while (featureIndexIdx < numFeaturesPerNode) {
@@ -362,31 +364,29 @@ object DecisionTree extends Serializable with Logging {
       } else {
         featureIndexIdx
       }
+
       if (unorderedFeatures.contains(featureIndex)) {
-        // Unordered feature
+        // 无序特征 Unordered feature
         val featureValue = treePoint.binnedFeatures(featureIndex)
-        val (leftNodeFeatureOffset, rightNodeFeatureOffset) =
-          agg.getLeftRightFeatureOffsets(featureIndexIdx)
+        val (leftNodeFeatureOffset, rightNodeFeatureOffset) = agg.getLeftRightFeatureOffsets(featureIndexIdx)
         // Update the left or right bin for each split.
         val numSplits = agg.metadata.numSplits(featureIndex)
         var splitIndex = 0
         while (splitIndex < numSplits) {
           if (splits(featureIndex)(splitIndex).categories.contains(featureValue)) {
-            agg.featureUpdate(leftNodeFeatureOffset, splitIndex, treePoint.label,
-              instanceWeight)
+            agg.featureUpdate(leftNodeFeatureOffset, splitIndex, treePoint.label, instanceWeight)
           } else {
-            agg.featureUpdate(rightNodeFeatureOffset, splitIndex, treePoint.label,
-              instanceWeight)
+            agg.featureUpdate(rightNodeFeatureOffset, splitIndex, treePoint.label, instanceWeight)
           }
           splitIndex += 1
         }
       } else {
-        // Ordered feature
+        // 有序特征 Ordered feature
         val binIndex = treePoint.binnedFeatures(featureIndex)
         agg.update(featureIndexIdx, binIndex, treePoint.label, instanceWeight)
       }
       featureIndexIdx += 1
-    }
+    } // while
   }
 
   /**

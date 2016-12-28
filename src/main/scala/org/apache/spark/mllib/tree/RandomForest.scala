@@ -447,8 +447,7 @@ object RandomForest extends Serializable with Logging {
    * List of supported feature subset sampling strategies.
    */
   @Since("1.2.0")
-  val supportedFeatureSubsetStrategies: Array[String] =
-    Array("auto", "all", "sqrt", "log2", "onethird")
+  val supportedFeatureSubsetStrategies: Array[String] = Array("auto", "all", "sqrt", "log2", "onethird")
 
   private[tree] class NodeIndexInfo(
       val nodeIndexInGroup: Int,

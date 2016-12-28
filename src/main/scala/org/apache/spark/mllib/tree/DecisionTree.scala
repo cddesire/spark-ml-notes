@@ -407,11 +407,13 @@ object DecisionTree extends Serializable with Logging {
     val label = treePoint.label
 
     // Iterate over features.
+    // 节点只使用一部分特征
     if (featuresForNode.nonEmpty) {
       // Use subsampled features
       var featureIndexIdx = 0
       while (featureIndexIdx < featuresForNode.get.size) {
         val binIndex = treePoint.binnedFeatures(featuresForNode.get.apply(featureIndexIdx))
+        // 更新聚合器的统计信息
         agg.update(featureIndexIdx, binIndex, label, instanceWeight)
         featureIndexIdx += 1
       }
@@ -512,11 +514,10 @@ object DecisionTree extends Serializable with Logging {
         val aggNodeIndex = nodeInfo.nodeIndexInGroup
         val featuresForNode = nodeInfo.featureSubset
         val instanceWeight = baggedPoint.subsampleWeights(treeIndex)
-        if (metadata.unorderedFeatures.isEmpty) {
+        if (metadata.unorderedFeatures.isEmpty) { // 特征属性值为有序的情况
           orderedBinSeqOp(agg(aggNodeIndex), baggedPoint.datum, instanceWeight, featuresForNode)
-        } else {
-          mixedBinSeqOp(agg(aggNodeIndex), baggedPoint.datum, splits,
-            metadata.unorderedFeatures, instanceWeight, featuresForNode)
+        } else {  // 有无序的特征属性值
+          mixedBinSeqOp(agg(aggNodeIndex), baggedPoint.datum, splits, metadata.unorderedFeatures, instanceWeight, featuresForNode)
         }
       }
     }
@@ -533,11 +534,13 @@ object DecisionTree extends Serializable with Logging {
      * @return  agg
      */
     def binSeqOp(agg: Array[DTStatsAggregator],
-        baggedPoint: BaggedPoint[TreePoint]): Array[DTStatsAggregator] = {
-      treeToNodeToIndexInfo.foreach { case (treeIndex, nodeIndexToInfo) =>
-        val nodeIndex = predictNodeIndex(topNodes(treeIndex), baggedPoint.datum.binnedFeatures,
-          bins, metadata.unorderedFeatures)
-        nodeBinSeqOp(treeIndex, nodeIndexToInfo.getOrElse(nodeIndex, null), agg, baggedPoint)
+        		baggedPoint: BaggedPoint[TreePoint]): Array[DTStatsAggregator] = {
+      	treeToNodeToIndexInfo.foreach { 
+      		case (treeIndex, nodeIndexToInfo) =>
+        	// 根据传递过来的样本值，判断属于哪个节点下
+        	val nodeIndex = predictNodeIndex(topNodes(treeIndex), baggedPoint.datum.binnedFeatures, bins, metadata.unorderedFeatures)
+        	// 根据上一步的节点索引，将样本统计信息放入相应的节点聚合器中  
+        	nodeBinSeqOp(treeIndex, nodeIndexToInfo.getOrElse(nodeIndex, null), agg, baggedPoint)
       }
       agg
     }

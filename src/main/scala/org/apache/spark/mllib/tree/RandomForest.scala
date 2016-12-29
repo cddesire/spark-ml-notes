@@ -450,8 +450,8 @@ object RandomForest extends Serializable with Logging {
   val supportedFeatureSubsetStrategies: Array[String] = Array("auto", "all", "sqrt", "log2", "onethird")
 
   private[tree] class NodeIndexInfo(
-      val nodeIndexInGroup: Int,
-      val featureSubset: Option[Array[Int]]) extends Serializable
+                                  val nodeIndexInGroup: Int,
+                                  val featureSubset: Option[Array[Int]]) extends Serializable
 
   /**
    * 取得每个树所有需要切分的节点

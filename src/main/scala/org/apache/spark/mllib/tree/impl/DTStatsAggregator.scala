@@ -46,9 +46,11 @@ private[spark] class DTStatsAggregator(
 
   /**
    * Number of bins for each feature.  This is indexed by the feature index.
+   * 每个特征bin的数量
    */
   private val numBins: Array[Int] = {
     if (featureSubset.isDefined) {
+      // 从所有的特征中提取特征子集的bin数量
       featureSubset.get.map(metadata.numBins(_))
     } else {
       metadata.numBins
@@ -107,10 +109,10 @@ private[spark] class DTStatsAggregator(
    *                           [[getLeftRightFeatureOffsets]].
    */
   def featureUpdate(
-      featureOffset: Int,
-      binIndex: Int,
-      label: Double,
-      instanceWeight: Double): Unit = {
+                  featureOffset: Int,
+                  binIndex: Int,
+                  label: Double,
+                  instanceWeight: Double): Unit = {
     impurityAggregator.update(allStats, featureOffset + binIndex * statsSize,
       label, instanceWeight)
   }

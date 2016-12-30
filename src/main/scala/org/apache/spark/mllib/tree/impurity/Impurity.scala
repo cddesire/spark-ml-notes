@@ -63,6 +63,7 @@ trait Impurity extends Serializable {
 private[spark] abstract class ImpurityAggregator(val statsSize: Int) extends Serializable {
 
   /**
+   * 合并统计信息
    * Merge the stats from one bin into another.
    * @param allStats  Flat stats array, with stats for this (node, feature, bin) contiguous.
    * @param offset    Start index of stats for (node, feature, bin) which is modified by the merge.

@@ -102,23 +102,7 @@ object Gini extends Impurity {
 private[tree] class GiniAggregator(numClasses: Int)
   extends ImpurityAggregator(numClasses) with Serializable {
 
-  /**
-   * Update stats for one (node, feature, bin) with the given label.
-   * @param allStats  Flat stats array, with stats for this (node, feature, bin) contiguous.
-   * @param offset    Start index of stats for this (node, feature, bin).
-   */
-  def update(allStats: Array[Double], offset: Int, label: Double, instanceWeight: Double): Unit = {
-    if (label >= statsSize) {
-      throw new IllegalArgumentException(s"GiniAggregator given label $label" +
-        s" but requires label < numClasses (= $statsSize).")
-    }
-    if (label < 0) {
-      throw new IllegalArgumentException(s"GiniAggregator given label $label" +
-        s"but requires label is non-negative.")
-    }
-    allStats(offset + label.toInt) += instanceWeight
-  }
-
+  
   /**
    * Get an [[ImpurityCalculator]] for a (node, feature, bin).
    * @param allStats  Flat stats array, with stats for this (node, feature, bin) contiguous.

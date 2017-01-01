@@ -339,34 +339,6 @@ class DecisionTreeSuite extends SparkFunSuite with MLlibTestSparkContext {
     assert(topNode.rightNode.get.impurity === 0.0)
   }
 
-  test("Use soft prediction for binary classification with ordered categorical features") {
-    // The following dataset is set up such that the best split is {1} vs. {0, 2}.
-    // If the hard prediction is used to order the categories, then {0} vs. {1, 2} is chosen.
-    val arr = Array(
-      LabeledPoint(0.0, Vectors.dense(0.0)),
-      LabeledPoint(0.0, Vectors.dense(0.0)),
-      LabeledPoint(0.0, Vectors.dense(0.0)),
-      LabeledPoint(1.0, Vectors.dense(0.0)),
-      LabeledPoint(0.0, Vectors.dense(1.0)),
-      LabeledPoint(0.0, Vectors.dense(1.0)),
-      LabeledPoint(0.0, Vectors.dense(1.0)),
-      LabeledPoint(0.0, Vectors.dense(1.0)),
-      LabeledPoint(0.0, Vectors.dense(2.0)),
-      LabeledPoint(0.0, Vectors.dense(2.0)),
-      LabeledPoint(0.0, Vectors.dense(2.0)),
-      LabeledPoint(1.0, Vectors.dense(2.0)))
-    val input = sc.parallelize(arr)
-
-    // Must set maxBins s.t. the feature will be treated as an ordered categorical feature.
-    val strategy = new Strategy(algo = Classification, impurity = Gini, maxDepth = 1,
-      numClasses = 2, categoricalFeaturesInfo = Map(0 -> 3), maxBins = 3)
-
-    val model = new DecisionTree(strategy).run(input)
-    model.topNode.split.get match {
-      case Split(_, _, _, categories: List[Double]) =>
-        assert(categories === List(1.0))
-    }
-  }
 
   test("Second level node building with vs. without groups") {
     val arr = DecisionTreeSuite.generateOrderedLabeledPoints()

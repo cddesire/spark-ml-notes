@@ -369,7 +369,16 @@ class DecisionTreeSuite extends SparkFunSuite with MLlibTestSparkContext {
   }
 
   test("Second level node building with vs. without groups") {
-    
+    val arr = DecisionTreeSuite.generateOrderedLabeledPoints()
+    assert(arr.length === 1000)
+    val rdd = sc.parallelize(arr)
+    val strategy = new Strategy(Classification, Entropy, 3, 2, 100)
+    val metadata = DecisionTreeMetadata.buildMetadata(rdd, strategy)
+    val (splits, bins) = DecisionTree.findSplitsBins(rdd, metadata)
+    assert(splits.length === 2)
+    assert(splits(0).length === 99)
+    assert(bins.length === 2)
+    assert(bins(0).length === 100)
 
     // Train a 1-node model
     val strategyOneNode = new Strategy(Classification, Entropy, maxDepth = 1,

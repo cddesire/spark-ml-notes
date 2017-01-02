@@ -404,23 +404,7 @@ class DecisionTreeSuite extends SparkFunSuite with MLlibTestSparkContext {
     children1(0) = rootNode1.leftNode.get
     children1(1) = rootNode1.rightNode.get
 
-    // Train one second-level node at a time.
-    val nodesForGroupA = Map((0, Array(rootNode2.leftNode.get)))
-    val treeToNodeToIndexInfoA = Map((0, Map(
-      (rootNode2.leftNode.get.id, new RandomForest.NodeIndexInfo(0, None)))))
-    nodeQueue.clear()
-    DecisionTree.findBestSplits(baggedInput, metadata, Array(rootNode2),
-      nodesForGroupA, treeToNodeToIndexInfoA, splits, bins, nodeQueue)
-    val nodesForGroupB = Map((0, Array(rootNode2.rightNode.get)))
-    val treeToNodeToIndexInfoB = Map((0, Map(
-      (rootNode2.rightNode.get.id, new RandomForest.NodeIndexInfo(0, None)))))
-    nodeQueue.clear()
-    DecisionTree.findBestSplits(baggedInput, metadata, Array(rootNode2),
-      nodesForGroupB, treeToNodeToIndexInfoB, splits, bins, nodeQueue)
-    val children2 = new Array[Node](2)
-    children2(0) = rootNode2.leftNode.get
-    children2(1) = rootNode2.rightNode.get
-
+    
     // Verify whether the splits obtained using single group and multiple group level
     // construction strategies are the same.
     for (i <- 0 until 2) {

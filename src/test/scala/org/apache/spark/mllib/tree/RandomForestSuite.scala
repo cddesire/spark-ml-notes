@@ -90,14 +90,7 @@ class RandomForestSuite extends SparkFunSuite with MLlibTestSparkContext {
     assert(rfTree.toString == dt.toString)
   }
 
-  test("Regression with continuous features:" +
-    " comparing DecisionTree vs. RandomForest(numTrees = 1)") {
-    val categoricalFeaturesInfo = Map.empty[Int, Int]
-    val strategy = new Strategy(algo = Regression, impurity = Variance,
-      maxDepth = 2, maxBins = 10, numClasses = 2,
-      categoricalFeaturesInfo = categoricalFeaturesInfo)
-    regressionTestWithContinuousFeatures(strategy)
-  }
+  
 
   test("Regression with continuous features and node Id cache :" +
     " comparing DecisionTree vs. RandomForest(numTrees = 1)") {

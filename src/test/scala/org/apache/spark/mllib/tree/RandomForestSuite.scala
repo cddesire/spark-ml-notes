@@ -54,14 +54,6 @@ class RandomForestSuite extends SparkFunSuite with MLlibTestSparkContext {
     assert(rfTree.toString == dt.toString)
   }
 
-  test("Binary classification with continuous features:" +
-    " comparing DecisionTree vs. RandomForest(numTrees = 1)") {
-    val categoricalFeaturesInfo = Map.empty[Int, Int]
-    val strategy = new Strategy(algo = Classification, impurity = Gini, maxDepth = 2,
-      numClasses = 2, categoricalFeaturesInfo = categoricalFeaturesInfo)
-    binaryClassificationTestWithContinuousFeatures(strategy)
-  }
-
   test("Binary classification with continuous features and node Id cache :" +
     " comparing DecisionTree vs. RandomForest(numTrees = 1)") {
     val categoricalFeaturesInfo = Map.empty[Int, Int]

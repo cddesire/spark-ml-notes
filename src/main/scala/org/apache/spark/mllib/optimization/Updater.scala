@@ -24,7 +24,19 @@ import breeze.linalg.{norm => brzNorm, axpy => brzAxpy, Vector => BV}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.mllib.linalg.{Vectors, Vector}
 
-
+/**
+ * :: DeveloperApi ::
+ * Class used to perform steps (weight update) using Gradient Descent methods.
+ *
+ * For general minimization problems, or for regularized problems of the form
+ *         min  L(w) + regParam * R(w),
+ * the compute function performs the actual update step, when given some
+ * (e.g. stochastic) gradient direction for the loss L(w),
+ * and a desired step-size (learning rate).
+ *
+ * The updater is responsible to also perform the update coming from the
+ * regularization term R(w) (if any regularization is used).
+ */
 @DeveloperApi
 abstract class Updater extends Serializable {
   /**

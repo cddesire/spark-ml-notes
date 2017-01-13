@@ -50,7 +50,11 @@ class GradientDescent private[spark] (private var gradient: Gradient, private va
     this
   }
 
-  
+  /**
+   * :: Experimental ::
+   * Set fraction of data to be used for each SGD iteration.
+   * Default 1.0 (corresponding to deterministic/classical gradient descent)
+   */
   @Experimental
   def setMiniBatchFraction(fraction: Double): this.type = {
     this.miniBatchFraction = fraction

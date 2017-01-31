@@ -56,29 +56,7 @@ class RankingMetrics[T: ClassTag](predictionAndLabels: RDD[(Array[T], Array[T])]
    * @param k the position to compute the truncated precision, must be positive
    * @return the average precision at the first k ranking positions
    */
-  @Since("1.2.0")
-  def precisionAt(k: Int): Double = {
-    require(k > 0, "ranking position k should be positive")
-    predictionAndLabels.map { case (pred, lab) =>
-      val labSet = lab.toSet
-
-      if (labSet.nonEmpty) {
-        val n = math.min(pred.length, k)
-        var i = 0
-        var cnt = 0
-        while (i < n) {
-          if (labSet.contains(pred(i))) {
-            cnt += 1
-          }
-          i += 1
-        }
-        cnt.toDouble / k
-      } else {
-        logWarning("Empty ground truth set, check input data")
-        0.0
-      }
-    }.mean()
-  }
+  
 
   /**
    * Returns the mean average precision (MAP) of all the queries.

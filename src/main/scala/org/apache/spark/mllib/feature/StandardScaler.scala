@@ -41,24 +41,7 @@ class StandardScaler @Since("1.1.0") (withMean: Boolean, withStd: Boolean) exten
     logWarning("Both withMean and withStd are false. The model does nothing.")
   }
 
-  /**
-   * Computes the mean and variance and stores as a model to be used for later scaling.
-   *
-   * @param data The data used to compute the mean and variance to build the transformation model.
-   * @return a StandardScalarModel
-   */
-  @Since("1.1.0")
-  def fit(data: RDD[Vector]): StandardScalerModel = {
-    // TODO: skip computation if both withMean and withStd are false
-    val summary = data.treeAggregate(new MultivariateOnlineSummarizer)(
-      (aggregator, data) => aggregator.add(data),
-      (aggregator1, aggregator2) => aggregator1.merge(aggregator2))
-    new StandardScalerModel(
-      Vectors.dense(summary.variance.toArray.map(v => math.sqrt(v))),
-      summary.mean,
-      withStd,
-      withMean)
-  }
+  
 }
 
 /**

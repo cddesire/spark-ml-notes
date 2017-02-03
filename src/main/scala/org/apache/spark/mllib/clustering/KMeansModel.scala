@@ -46,30 +46,7 @@ class KMeansModel @Since("1.1.0") (@Since("1.0.0") val clusterCenters: Array[Vec
   @Since("1.4.0")
   def this(centers: java.lang.Iterable[Vector]) = this(centers.asScala.toArray)
 
-  /**
-   * Total number of clusters.
-   */
-  @Since("0.8.0")
-  def k: Int = clusterCenters.length
-
-  /**
-   * Returns the cluster index that a given point belongs to.
-   */
-  @Since("0.8.0")
-  def predict(point: Vector): Int = {
-    KMeans.findClosest(clusterCentersWithNorm, new VectorWithNorm(point))._1
-  }
-
-  /**
-   * Maps given points to their cluster indices.
-   */
-  @Since("1.0.0")
-  def predict(points: RDD[Vector]): RDD[Int] = {
-    val centersWithNorm = clusterCentersWithNorm
-    val bcCentersWithNorm = points.context.broadcast(centersWithNorm)
-    points.map(p => KMeans.findClosest(bcCentersWithNorm.value, new VectorWithNorm(p))._1)
-  }
-
+  
   /**
    * Maps given points to their cluster indices.
    */

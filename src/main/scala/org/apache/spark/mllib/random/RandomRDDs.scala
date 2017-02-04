@@ -84,27 +84,6 @@ object RandomRDDs {
     JavaDoubleRDD.fromRDD(uniformRDD(jsc.sc, size))
   }
 
-  /**
-   * Generates an RDD comprised of `i.i.d.` samples from the standard normal distribution.
-   *
-   * To transform the distribution in the generated RDD from standard normal to some other normal
-   * `N(mean, sigma^2^)`, use `RandomRDDs.normalRDD(sc, n, p, seed).map(v => mean + sigma * v)`.
-   *
-   * @param sc SparkContext used to create the RDD.
-   * @param size Size of the RDD.
-   * @param numPartitions Number of partitions in the RDD (default: `sc.defaultParallelism`).
-   * @param seed Random seed (default: a random long integer).
-   * @return RDD[Double] comprised of `i.i.d.` samples ~ N(0.0, 1.0).
-   */
-  @Since("1.1.0")
-  def normalRDD(
-      sc: SparkContext,
-      size: Long,
-      numPartitions: Int = 0,
-      seed: Long = Utils.random.nextLong()): RDD[Double] = {
-    val normal = new StandardNormalGenerator()
-    randomRDD(sc, normal, size, numPartitionsOrDefault(sc, numPartitions), seed)
-  }
 
   /**
    * Java-friendly version of [[RandomRDDs#normalRDD]].

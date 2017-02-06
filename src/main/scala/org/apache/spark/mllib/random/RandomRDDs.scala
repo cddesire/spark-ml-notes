@@ -537,7 +537,18 @@ object RandomRDDs {
     normalVectorRDD(jsc.sc, numRows, numCols, numPartitions, seed).toJavaRDD()
   }
 
-  
+  /**
+   * [[RandomRDDs#normalJavaVectorRDD]] with the default seed.
+   */
+  @Since("1.1.0")
+  def normalJavaVectorRDD(
+      jsc: JavaSparkContext,
+      numRows: Long,
+      numCols: Int,
+      numPartitions: Int): JavaRDD[Vector] = {
+    normalVectorRDD(jsc.sc, numRows, numCols, numPartitions).toJavaRDD()
+  }
+
   /**
    * [[RandomRDDs#normalJavaVectorRDD]] with the default number of partitions and the default seed.
    */

@@ -76,11 +76,4 @@ class HashingTF(val numFeatures: Int) extends Serializable {
     dataset.map(this.transform)
   }
 
-  /**
-   * Transforms the input document to term frequency vectors (Java version).
-   */
-  @Since("1.1.0")
-  def transform[D <: JavaIterable[_]](dataset: JavaRDD[D]): JavaRDD[Vector] = {
-    dataset.rdd.map(this.transform).toJavaRDD()
-  }
 }

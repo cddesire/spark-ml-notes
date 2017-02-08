@@ -191,7 +191,6 @@ private class RandomForest (
       s"  Minimum value = ${maxMemoryPerNode / (1024L * 1024L)}")
 
     timer.stop("init")
-
     /*
      * The main idea here is to perform group-wise training of the decision tree nodes thus
      * reducing the passes over the data from (# nodes) to (# nodes / maxNumberOfNodesPerGroup).
@@ -231,12 +230,11 @@ private class RandomForest (
       val (nodesForGroup, treeToNodeToIndexInfo) =
         RandomForest.selectNodesToSplit(nodeQueue, maxMemoryUsage, metadata, rng)
       // Sanity check (should never occur):
-      assert(nodesForGroup.size > 0,
-        s"RandomForest selected empty nodesForGroup.  Error for unknown reason.")
+      assert(nodesForGroup.size > 0, s"RandomForest selected empty nodesForGroup.  Error for unknown reason.")
 
       // Choose node splits, and enqueue new nodes as needed.
       timer.start("findBestSplits")
-      // 找出最优切点
+
       DecisionTree.findBestSplits(baggedInput, metadata, topNodes, nodesForGroup,
         treeToNodeToIndexInfo, splits, bins, nodeQueue, timer, nodeIdCache = nodeIdCache)
       timer.stop("findBestSplits")
@@ -483,8 +481,7 @@ object RandomForest extends Serializable with Logging {
     // mutableTreeToNodeToIndexInfo保存每个节点中选中特征的索引
     // treeIndex --> (global) node index --> (node index in group, feature indices)
     // (global) node index是树中的索引，组中节点索引的范围是[0, numNodesInGroup)
-    val mutableTreeToNodeToIndexInfo =
-      new mutable.HashMap[Int, mutable.HashMap[Int, NodeIndexInfo]]()
+    val mutableTreeToNodeToIndexInfo = new mutable.HashMap[Int, mutable.HashMap[Int, NodeIndexInfo]]()
     var memUsage: Long = 0L
     var numNodesInGroup = 0
     while (nodeQueue.nonEmpty && memUsage < maxMemoryUsage) {

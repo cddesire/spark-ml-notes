@@ -38,7 +38,8 @@ import org.apache.spark.util.random.XORShiftRandom
 /**
  * A class which implements a decision tree learning algorithm for classification and regression.
  * It supports both continuous and categorical features.
- * @param strategy The configuration parameters for the tree algorithm which specify the type
+  *
+  * @param strategy The configuration parameters for the tree algorithm which specify the type
  *                 of algorithm (classification, regression, etc.), feature type (continuous,
  *                 categorical), depth of the tree, quantile calculation strategy, etc.
  */
@@ -50,7 +51,8 @@ class DecisionTree @Since("1.0.0") (private val strategy: Strategy)
 
   /**
    * Method to train a decision tree model over an RDD
-   * @param input Training data: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]]
+    *
+    * @param input Training data: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]]
    * @return DecisionTreeModel that can be used for prediction
    */
   @Since("1.2.0")
@@ -494,63 +496,65 @@ object DecisionTree extends Serializable with Logging {
     logDebug("using nodeIdCache = " + nodeIdCache.nonEmpty.toString)
 
     /**
-     * Performs a sequential aggregation over a partition for a particular tree and node.
-     *
-     * For each feature, the aggregate sufficient statistics are updated for the relevant
-     * bins.
-     *
-     * @param treeIndex Index of the tree that we want to perform aggregation for.
-     * @param nodeInfo The node info for the tree node.
-     * @param agg Array storing aggregate calculation, with a set of sufficient statistics
-     *            for each (node, feature, bin).
-     * @param baggedPoint Data point being aggregated.
-     */
+      * Performs a sequential aggregation over a partition for a particular tree and node.
+      *
+      * For each feature, the aggregate sufficient statistics are updated for the relevant
+      * bins.
+      *
+      * @param treeIndex   Index of the tree that we want to perform aggregation for.
+      * @param nodeInfo    The node info for the tree node.
+      * @param agg         Array storing aggregate calculation, with a set of sufficient statistics
+      *                    for each (node, feature, bin).
+      * @param baggedPoint Data point being aggregated.
+      */
     def nodeBinSeqOp(
-                    treeIndex: Int,
-                    nodeInfo: RandomForest.NodeIndexInfo,
-                    agg: Array[DTStatsAggregator],
-                    baggedPoint: BaggedPoint[TreePoint]): Unit = {
+                      treeIndex: Int,
+                      nodeInfo: RandomForest.NodeIndexInfo,
+                      agg: Array[DTStatsAggregator],
+                      baggedPoint: BaggedPoint[TreePoint]): Unit = {
       if (nodeInfo != null) {
         val aggNodeIndex = nodeInfo.nodeIndexInGroup
         val featuresForNode = nodeInfo.featureSubset
         val instanceWeight = baggedPoint.subsampleWeights(treeIndex)
-        if (metadata.unorderedFeatures.isEmpty) { // 特征属性值为有序的情况
+        if (metadata.unorderedFeatures.isEmpty) {
+          // 特征属性值为有序的情况
           orderedBinSeqOp(agg(aggNodeIndex), baggedPoint.datum, instanceWeight, featuresForNode)
-        } else {  // 有无序的特征属性值
+        } else {
+          // 有无序的特征属性值
           mixedBinSeqOp(agg(aggNodeIndex), baggedPoint.datum, splits, metadata.unorderedFeatures, instanceWeight, featuresForNode)
         }
       }
     }
 
     /**
-     * Performs a sequential aggregation over a partition.
-     *
-     * Each data point contributes to one node. For each feature,
-     * the aggregate sufficient statistics are updated for the relevant bins.
-     *
-     * @param agg  Array storing aggregate calculation, with a set of sufficient statistics for
-     *             each (node, feature, bin).
-     * @param baggedPoint   Data point being aggregated.
-     * @return  agg
-     */
+      * Performs a sequential aggregation over a partition.
+      *
+      * Each data point contributes to one node. For each feature,
+      * the aggregate sufficient statistics are updated for the relevant bins.
+      *
+      * @param agg         Array storing aggregate calculation, with a set of sufficient statistics for
+      *                    each (node, feature, bin).
+      * @param baggedPoint Data point being aggregated.
+      * @return agg
+      */
     def binSeqOp(agg: Array[DTStatsAggregator],
-        		baggedPoint: BaggedPoint[TreePoint]): Array[DTStatsAggregator] = {
-      	treeToNodeToIndexInfo.foreach { 
-      		case (treeIndex, nodeIndexToInfo) =>
-        	// 根据传递过来的样本值，判断属于哪个节点下
-        	val nodeIndex = predictNodeIndex(topNodes(treeIndex), baggedPoint.datum.binnedFeatures, bins, metadata.unorderedFeatures)
-        	// 根据上一步的节点索引，将样本统计信息放入相应的节点聚合器中  
-        	nodeBinSeqOp(treeIndex, nodeIndexToInfo.getOrElse(nodeIndex, null), agg, baggedPoint)
+                 baggedPoint: BaggedPoint[TreePoint]): Array[DTStatsAggregator] = {
+      treeToNodeToIndexInfo.foreach {
+        case (treeIndex, nodeIndexToInfo) =>
+          // 根据传递过来的样本值，判断属于哪个节点下
+          val nodeIndex = predictNodeIndex(topNodes(treeIndex), baggedPoint.datum.binnedFeatures, bins, metadata.unorderedFeatures)
+          // 根据上一步的节点索引，将样本统计信息放入相应的节点聚合器中
+          nodeBinSeqOp(treeIndex, nodeIndexToInfo.getOrElse(nodeIndex, null), agg, baggedPoint)
       }
       agg
     }
 
     /**
-     * Do the same thing as binSeqOp, but with nodeIdCache.
-     */
+      * Do the same thing as binSeqOp, but with nodeIdCache.
+      */
     def binSeqOpWithNodeIdCache(
-        agg: Array[DTStatsAggregator],
-        dataPoint: (BaggedPoint[TreePoint], Array[Int])): Array[DTStatsAggregator] = {
+                                 agg: Array[DTStatsAggregator],
+                                 dataPoint: (BaggedPoint[TreePoint], Array[Int])): Array[DTStatsAggregator] = {
       treeToNodeToIndexInfo.foreach { case (treeIndex, nodeIndexToInfo) =>
         val baggedPoint = dataPoint._1
         val nodeIdCache = dataPoint._2
@@ -562,13 +566,14 @@ object DecisionTree extends Serializable with Logging {
     }
 
     /**
-     * Get node index in group --> features indices map,
-     * which is a short cut to find feature indices for a node given node index in group
-     * @param treeToNodeToIndexInfo
-     * @return
-     */
+      * Get node index in group --> features indices map,
+      * which is a short cut to find feature indices for a node given node index in group
+      *
+      * @param treeToNodeToIndexInfo
+      * @return
+      */
     def getNodeToFeatures(treeToNodeToIndexInfo: Map[Int, Map[Int, NodeIndexInfo]])
-      : Option[Map[Int, Array[Int]]] = if (!metadata.subsamplingFeatures) {
+    : Option[Map[Int, Array[Int]]] = if (!metadata.subsamplingFeatures) {
       None
     } else {
       val mutableNodeToFeatures = new mutable.HashMap[Int, Array[Int]]()
@@ -603,7 +608,7 @@ object DecisionTree extends Serializable with Logging {
     val nodeToFeatures = getNodeToFeatures(treeToNodeToIndexInfo)
     val nodeToFeaturesBc = input.sparkContext.broadcast(nodeToFeatures)
 
-    val partitionAggregates : RDD[(Int, DTStatsAggregator)] = if (nodeIdCache.nonEmpty) {
+    val partitionAggregates: RDD[(Int, DTStatsAggregator)] = if (nodeIdCache.nonEmpty) {
       input.zip(nodeIdCache.get.nodeIdsForInstances).mapPartitions { points =>
         // Construct a nodeStatsAggregators array to hold node aggregate stats,
         // each node will have a nodeStatsAggregator
@@ -615,7 +620,6 @@ object DecisionTree extends Serializable with Logging {
           // DTStatsAggregator，其中引用了 ImpurityAggregator，给出计算不纯度 impurity 的逻辑
           new DTStatsAggregator(metadata, featuresForNode)
         }
-
         // iterator all instances in current partition and update aggregate stats
         // 迭代当前分区的所有对象，更新聚合统计信息，统计信息即采样数据的权重值
         points.foreach(binSeqOpWithNodeIdCache(nodeStatsAggregators, _))
@@ -647,16 +651,16 @@ object DecisionTree extends Serializable with Logging {
     }
 
     val nodeToBestSplits = partitionAggregates.reduceByKey((a, b) => a.merge(b))
-        .map { case (nodeIndex, aggStats) =>
-          val featuresForNode = nodeToFeaturesBc.value.map { nodeToFeatures =>
-            nodeToFeatures(nodeIndex)
-          }
+      .map { case (nodeIndex, aggStats) =>
+        val featuresForNode = nodeToFeaturesBc.value.map { nodeToFeatures =>
+          nodeToFeatures(nodeIndex)
+        }
 
-          // find best split for each node
-          val (split: Split, stats: InformationGainStats, predict: Predict) =
-            binsToBestSplit(aggStats, splits, featuresForNode, nodes(nodeIndex))
-          (nodeIndex, (split, stats, predict))
-        }.collectAsMap()
+        // find best split for each node
+        val (split: Split, stats: InformationGainStats, predict: Predict) =
+          binsToBestSplit(aggStats, splits, featuresForNode, nodes(nodeIndex))
+        (nodeIndex, (split, stats, predict))
+      }.collectAsMap()
 
     timer.stop("chooseSplits")
 
@@ -722,11 +726,12 @@ object DecisionTree extends Serializable with Logging {
       // Update the cache if needed.
       nodeIdCache.get.updateNodeIndices(input, nodeIdUpdaters, bins)
     }
-  }
+  } // end for findBestSplits
 
   /**
-   * Calculate the information gain for a given (feature, split) based upon left/right aggregates.
-   * @param leftImpurityCalculator left node aggregates for this (feature, split)
+    * Calculate the information gain for a given (feature, split) based upon left/right aggregates.
+    *
+    * @param leftImpurityCalculator left node aggregates for this (feature, split)
    * @param rightImpurityCalculator right node aggregate for this (feature, split)
    * @return information gain and statistics for split
    */
@@ -777,7 +782,8 @@ object DecisionTree extends Serializable with Logging {
   /**
    * Calculate predict value for current node, given stats of any split.
    * Note that this function is called only once for each node.
-   * @param leftImpurityCalculator left node aggregates for a split
+    *
+    * @param leftImpurityCalculator left node aggregates for a split
    * @param rightImpurityCalculator right node aggregates for a split
    * @return predict value and impurity for current node
    */
@@ -794,7 +800,8 @@ object DecisionTree extends Serializable with Logging {
 
   /**
    * Find the best split for a node.
-   * @param binAggregates Bin statistics.
+    *
+    * @param binAggregates Bin statistics.
    * @return tuple for best split: (Split, information gain, prediction at node)
    */
   private[tree] def binsToBestSplit(
@@ -1139,7 +1146,8 @@ object DecisionTree extends Serializable with Logging {
    * NOTE: Returned number of splits is set based on `featureSamples` and
    *       could be different from the specified `numSplits`.
    *       The `numSplits` attribute in the `DecisionTreeMetadata` class will be set accordingly.
-   * @param featureSamples feature values of each sample
+    *
+    * @param featureSamples feature values of each sample
    * @param metadata decision tree metadata
    *                 NOTE: `metadata.numbins` will be changed accordingly
    *                       if there are not enough splits to be found

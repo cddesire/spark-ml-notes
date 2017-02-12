@@ -52,6 +52,11 @@ import org.apache.spark.storage.StorageLevel
 class GradientBoostedTrees @Since("1.2.0") (private val boostingStrategy: BoostingStrategy)
   extends Serializable with Logging {
 
+  /**
+   * Method to train a gradient boosting model
+   * @param input Training dataset: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]].
+   * @return a gradient boosted trees model that can be used for prediction
+   */
   @Since("1.2.0")
   def run(input: RDD[LabeledPoint]): GradientBoostedTreesModel = {
     val algo = boostingStrategy.treeStrategy.algo

@@ -127,12 +127,6 @@ class L1Updater extends Updater {
   }
 }
 
-/**
- * :: DeveloperApi ::
- * Updater for L2 regularized problems.
- *          R(w) = 1/2 ||w||^2
- * Uses a step-size decreasing with the square root of the number of iterations.
- */
 @DeveloperApi
 class SquaredL2Updater extends Updater {
   override def compute(

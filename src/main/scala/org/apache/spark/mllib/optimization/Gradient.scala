@@ -305,6 +305,7 @@ class HingeGradient extends Gradient {
     val labelScaled = 2 * label - 1.0
     if (1.0 > labelScaled * dotProduct) {
       val gradient = data.copy
+      // x = a * x
       scal(-labelScaled, gradient)
       (gradient, 1.0 - labelScaled * dotProduct)
     } else {
@@ -322,6 +323,7 @@ class HingeGradient extends Gradient {
     // Therefore the gradient is -(2y - 1)*x
     val labelScaled = 2 * label - 1.0
     if (1.0 > labelScaled * dotProduct) {
+      // y += a * x
       axpy(-labelScaled, data, cumGradient)
       1.0 - labelScaled * dotProduct
     } else {

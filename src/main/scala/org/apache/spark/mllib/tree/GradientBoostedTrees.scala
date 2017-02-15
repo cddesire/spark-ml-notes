@@ -34,6 +34,7 @@ import org.apache.spark.storage.StorageLevel
  * A class that implements
  * [[http://en.wikipedia.org/wiki/Gradient_boosting  Stochastic Gradient Boosting]]
  * for regression and binary classification.
+ * 梯度提升树(Gradient-Boosted Tree)简称GBT，是一种更加复杂的模型，它实质上是采用Boost方法，利用基本决策树模型得到的一种集成树模型。GBT的训练是每次训练一颗树，然后利用这颗树对每个实例进行预测，通过一个损失函数，计算损失函数的负梯度值作为残差，利用这个残差更新样本实例的label，然后再次训练一颗树去拟合残差，如此进行迭代，直到满足模型参数需求。GBT只适用于二分类和回归，不支持多分类，在预测的时候，不像随机森林那样求平均值，GBT是将所有树的预测值相加求和。
  *
  * The implementation is based upon:
  *   J.H. Friedman.  "Stochastic Gradient Boosting."  1999.
@@ -209,7 +210,7 @@ object GradientBoostedTrees extends Logging {
     val firstTreeWeight = 1.0
     baseLearners(0) = firstTreeModel
     baseLearnerWeights(0) = firstTreeWeight
-
+    // 计算每一个训练样本的预测值和误差
     var predError: RDD[(Double, Double)] = GradientBoostedTreesModel.
       computeInitialPredictionAndError(input, firstTreeWeight, firstTreeModel, loss)
     predErrorCheckpointer.update(predError)
@@ -217,7 +218,7 @@ object GradientBoostedTrees extends Logging {
 
     // Note: A model of type regression is used since we require raw prediction
     timer.stop("building tree 0")
-
+    // 计算每一个验证样本的预测值和误差
     var validatePredError: RDD[(Double, Double)] = GradientBoostedTreesModel.
       computeInitialPredictionAndError(validationInput, firstTreeWeight, firstTreeModel, loss)
     if (validate) validatePredErrorCheckpointer.update(validatePredError)
@@ -228,6 +229,7 @@ object GradientBoostedTrees extends Logging {
     var doneLearning = false
     while (m < numIterations && !doneLearning) {
       // Update data with pseudo-residuals
+      // 计算损失函数的负梯度值作为残差，利用这个残差更新样本的label
       val data = predError.zip(input).map { case ((pred, _), point) =>
         LabeledPoint(-loss.gradient(pred, point.label), point.features)
       }
@@ -236,6 +238,7 @@ object GradientBoostedTrees extends Logging {
       logDebug("###################################################")
       logDebug("Gradient boosting tree iteration " + m)
       logDebug("###################################################")
+      // 生成新的模型
       val model = new DecisionTree(treeStrategy).run(data)
       timer.stop(s"building tree $m")
       // Update partial model
@@ -244,7 +247,8 @@ object GradientBoostedTrees extends Logging {
       //       Technically, the weight should be optimized for the particular loss.
       //       However, the behavior should be reasonable, though not optimal.
       baseLearnerWeights(m) = learningRate
-
+      // 新的预测值 = 原先的预测值 + 当前模型的预测值 * 当前模型的权重
+      // 误差 = loss(新的预测值，label)
       predError = GradientBoostedTreesModel.updatePredictionError(
         input, predError, baseLearnerWeights(m), baseLearners(m), loss)
       predErrorCheckpointer.update(predError)

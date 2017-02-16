@@ -38,7 +38,27 @@ private[spark] object BLAS extends Serializable with Logging {
     _f2jBLAS
   }
 
- 
+  /**
+   * y += a * x
+   */
+  def axpy(a: Double, x: Vector, y: Vector): Unit = {
+    require(x.size == y.size)
+    y match {
+      case dy: DenseVector =>
+        x match {
+          case sx: SparseVector =>
+            axpy(a, sx, dy)
+          case dx: DenseVector =>
+            axpy(a, dx, dy)
+          case _ =>
+            throw new UnsupportedOperationException(
+              s"axpy doesn't support x type ${x.getClass}.")
+        }
+      case _ =>
+        throw new IllegalArgumentException(
+          s"axpy only supports adding to a dense vector but got type ${y.getClass}.")
+    }
+  }
 
   /**
    * y += a * x

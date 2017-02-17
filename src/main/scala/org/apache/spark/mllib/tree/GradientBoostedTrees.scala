@@ -193,8 +193,10 @@ object GradientBoostedTrees extends Logging {
     }
 
     // Prepare periodic checkpointers
+    
     val predErrorCheckpointer = new PeriodicRDDCheckpointer[(Double, Double)](
       treeStrategy.getCheckpointInterval, input.sparkContext)
+
     val validatePredErrorCheckpointer = new PeriodicRDDCheckpointer[(Double, Double)](
       treeStrategy.getCheckpointInterval, input.sparkContext)
 

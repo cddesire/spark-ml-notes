@@ -95,11 +95,13 @@ class GradientBoostedTrees @Since("1.2.0") (private val boostingStrategy: Boosti
   def runWithValidation(
       input: RDD[LabeledPoint],
       validationInput: RDD[LabeledPoint]): GradientBoostedTreesModel = {
+    // 梯度提升树只能用于二分类和回归
     val algo = boostingStrategy.treeStrategy.algo
     algo match {
       case Regression =>
         GradientBoostedTrees.boost(input, validationInput, boostingStrategy, validate = true)
       case Classification =>
+        // 将标签映射为-1,+1，那么二分类也可以被当做回归
         // Map labels to -1, +1 so binary classification can be treated as regression.
         val remappedInput = input.map(
           x => new LabeledPoint((x.label * 2) - 1, x.features))
@@ -165,6 +167,9 @@ object GradientBoostedTrees extends Logging {
       validationInput: RDD[LabeledPoint],
       boostingStrategy: BoostingStrategy,
       validate: Boolean): GradientBoostedTreesModel = {
+    // 第一步，初始化参数；
+    // 第二步，训练第一棵树；
+    // 第三步，迭代训练后续的树。
     val timer = new TimeTracker()
     timer.start("total")
     timer.start("init")
@@ -194,7 +199,6 @@ object GradientBoostedTrees extends Logging {
     }
 
     // Prepare periodic checkpointers
-    
     val predErrorCheckpointer = new PeriodicRDDCheckpointer[(Double, Double)](
       treeStrategy.getCheckpointInterval, input.sparkContext)
     //  In order to prevent overfitting, it is useful to validate while training
@@ -208,6 +212,7 @@ object GradientBoostedTrees extends Logging {
     logDebug("##########")
 
     // Initialize tree
+    // 第一个基学习器
     timer.start("building tree 0")
     val firstTreeModel = new DecisionTree(treeStrategy).run(input)
     val firstTreeWeight = 1.0
@@ -234,6 +239,7 @@ object GradientBoostedTrees extends Logging {
       // Update data with pseudo-residuals
       // 计算损失函数的负梯度值作为残差，利用这个残差更新样本的label
       val data = predError.zip(input).map { case ((pred, _), point) =>
+        // Label为上一棵树预测的数据的负梯度方向
         LabeledPoint(-loss.gradient(pred, point.label), point.features)
       }
 
@@ -256,7 +262,7 @@ object GradientBoostedTrees extends Logging {
         input, predError, baseLearnerWeights(m), baseLearners(m), loss)
       predErrorCheckpointer.update(predError)
       logDebug("error of gbt = " + predError.values.mean())
-
+      // 当需要验证阈值，提前终止迭代时
       if (validate) {
         // Stop training early if
         // 1. Reduction in error is less than the validationTol or

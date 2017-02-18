@@ -175,6 +175,7 @@ object GradientBoostedTrees extends Logging {
     val numIterations = boostingStrategy.numIterations
     val baseLearners = new Array[DecisionTreeModel](numIterations)
     val baseLearnerWeights = new Array[Double](numIterations)
+    // Classification: Log Loss    Regression:Squared Error/Absolute Error
     val loss = boostingStrategy.loss
     val learningRate = boostingStrategy.learningRate
     // Prepare strategy for individual trees, which use regression with variance impurity.
@@ -196,7 +197,7 @@ object GradientBoostedTrees extends Logging {
     
     val predErrorCheckpointer = new PeriodicRDDCheckpointer[(Double, Double)](
       treeStrategy.getCheckpointInterval, input.sparkContext)
-
+    //  In order to prevent overfitting, it is useful to validate while training
     val validatePredErrorCheckpointer = new PeriodicRDDCheckpointer[(Double, Double)](
       treeStrategy.getCheckpointInterval, input.sparkContext)
 

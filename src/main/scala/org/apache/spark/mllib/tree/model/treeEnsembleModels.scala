@@ -205,6 +205,7 @@ object GradientBoostedTreesModel extends Loader[GradientBoostedTreesModel] {
       loss: Loss): RDD[(Double, Double)] = {
     data.map { lp =>
       val pred = initTreeWeight * initTree.predict(lp.features)
+      // 根据选择的损失函数的不同，computeError的实现不同。
       val error = loss.computeError(pred, lp.label)
       (pred, error)
     }

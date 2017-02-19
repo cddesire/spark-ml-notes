@@ -113,6 +113,7 @@ object SVMModel extends Loader[SVMModel] {
           case Some(t) => model.setThreshold(t)
           case None => model.clearThreshold()
         }
+        
         model
       case _ => throw new Exception(
         s"SVMModel.load did not recognize model with (className, format version):" +

@@ -145,10 +145,14 @@ class SquaredL2Updater extends Updater {
     // the gradient of the regularizer (= regParam * weightsOld)
     // w' = w - thisIterStepSize * (gradient + regParam * w)
     // w' = (1 - thisIterStepSize * regParam) * w - thisIterStepSize * gradient
+    // 表示参数沿负梯度方向改变的速率，它随着迭代次数的增多而减小。
     val thisIterStepSize = stepSize / math.sqrt(iter)
+    // 正则化，brzWeights每行数据均乘以(1.0 - thisIterStepSize * regParam)
     val brzWeights: BV[Double] = weightsOld.toBreeze.toDenseVector
     brzWeights :*= (1.0 - thisIterStepSize * regParam)
+    // y += x * a，即brzWeights -= gradient * thisInterStepSize
     brzAxpy(-thisIterStepSize, gradient.toBreeze, brzWeights)
+    // 正则化||w||_2
     val norm = brzNorm(brzWeights, 2.0)
 
     (Vectors.fromBreeze(brzWeights), 0.5 * regParam * norm * norm)

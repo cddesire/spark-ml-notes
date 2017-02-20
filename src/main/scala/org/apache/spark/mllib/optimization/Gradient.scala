@@ -302,6 +302,7 @@ class HingeGradient extends Gradient {
     val dotProduct = dot(data, weights)
     // Our loss function with {0, 1} labels is max(0, 1 - (2y - 1) (f_w(x)))
     // Therefore the gradient is -(2y - 1)*x
+    // 
     val labelScaled = 2 * label - 1.0
     if (1.0 > labelScaled * dotProduct) {
       val gradient = data.copy
@@ -321,9 +322,12 @@ class HingeGradient extends Gradient {
     val dotProduct = dot(data, weights)
     // Our loss function with {0, 1} labels is max(0, 1 - (2y - 1) (f_w(x)))
     // Therefore the gradient is -(2y - 1)*x
+    // 损失函数是 max(0, 1 - (2y - 1) (f_w(x)))
+    // 所以梯度是 -(2y - 1)*x
     val labelScaled = 2 * label - 1.0
     if (1.0 > labelScaled * dotProduct) {
       // y += a * x
+      // cumGradient -= labelScaled * data
       axpy(-labelScaled, data, cumGradient)
       1.0 - labelScaled * dotProduct
     } else {

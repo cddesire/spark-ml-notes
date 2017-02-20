@@ -113,7 +113,6 @@ object SVMModel extends Loader[SVMModel] {
           case Some(t) => model.setThreshold(t)
           case None => model.clearThreshold()
         }
-        
         model
       case _ => throw new Exception(
         s"SVMModel.load did not recognize model with (className, format version):" +
@@ -135,8 +134,9 @@ class SVMWithSGD private (
     private var regParam: Double,
     private var miniBatchFraction: Double)
   extends GeneralizedLinearAlgorithm[SVMModel] with Serializable {
-
+  // HingeGradient: -(2y - 1)*x
   private val gradient = new HingeGradient()
+  // SquaredL2Updater: R(w) = 1/2 ||w||^2
   private val updater = new SquaredL2Updater()
   @Since("0.8.0")
   override val optimizer = new GradientDescent(gradient, updater)

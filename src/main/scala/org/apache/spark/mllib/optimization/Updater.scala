@@ -59,6 +59,7 @@ abstract class Updater extends Serializable {
       stepSize: Double,
       iter: Int,
       regParam: Double): (Vector, Double)
+  
 }
 
 /**

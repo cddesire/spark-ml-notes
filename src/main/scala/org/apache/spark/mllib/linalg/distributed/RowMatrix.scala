@@ -36,6 +36,8 @@ import org.apache.spark.storage.StorageLevel
 /**
  * Represents a row-oriented distributed Matrix with no meaningful row indices.
  *
+ * RowMatrix是面向行的分散矩阵，没有行索引，每行都代表一个本地向量，
+ * 所以列的数量必须在整数Int范围中，可以使用RDD[Vector]实例来创建RowMatrix
  * @param rows rows stored as an RDD[Vector]
  * @param nRows number of rows. A non-positive value means unknown, and then the number of rows will
  *              be determined by the number of records in the RDD `rows`.

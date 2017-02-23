@@ -36,7 +36,7 @@ import org.apache.spark.storage.StorageLevel
 /**
  * Represents a row-oriented distributed Matrix with no meaningful row indices.
  *
- * RowMatrix是面向行的分散矩阵，没有行索引，每行都代表一个本地向量，
+ * RowMatrix是面向行的分散矩阵，没有行索引，每一行就是一个本地向量，
  * 所以列的数量必须在整数Int范围中，可以使用RDD[Vector]实例来创建RowMatrix
  * @param rows rows stored as an RDD[Vector]
  * @param nRows number of rows. A non-positive value means unknown, and then the number of rows will
@@ -108,6 +108,7 @@ class RowMatrix @Since("1.0.0") (
   }
 
   /**
+   * 矩阵 ATA 是 A 的列向量的格拉姆矩阵，而矩阵 AAT 是 A 的行向量的格拉姆矩阵
    * Computes the Gramian matrix `A^T A`. Note that this cannot be computed on matrices with
    * more than 65535 columns.
    */
@@ -231,6 +232,8 @@ class RowMatrix @Since("1.0.0") (
 
         // TODO: The conditions below are not fully tested.
         if (n < 100 || (k > n / 2 && n <= 15000)) {
+          // 格拉姆矩阵是半正定的，反之每个半正定矩阵是某些向量的格拉姆矩阵。
+          // 如果向量是随机变量，所得格拉姆矩阵是协方差矩阵。
           // If n is small or k is large compared with n, we better compute the Gramian matrix first
           // and then compute its eigenvalues locally, instead of making multiple passes.
           if (k < n / 3) {

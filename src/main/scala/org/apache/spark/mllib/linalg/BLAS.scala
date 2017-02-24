@@ -39,7 +39,7 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * y += a * x
+   * y += a * x  x、y为相同维度向量，a为系数
    */
   def axpy(a: Double, x: Vector, y: Vector): Unit = {
     require(x.size == y.size)
@@ -100,7 +100,8 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * dot(x, y)
+   * dot(x, y)  x、y向量内积
+   * 已知两个非零向量a=（x1，y1），b=（x2，y2），则有a·b=x1x2+y1y2
    */
   def dot(x: Vector, y: Vector): Double = {
     require(x.size == y.size,
@@ -176,7 +177,7 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * y = x
+   * y = x  把向量x复制到向量y
    */
   def copy(x: Vector, y: Vector): Unit = {
     val n = y.size
@@ -215,7 +216,7 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * x = a * x
+   * x = a * x  把向量x乘以常数a
    */
   def scal(a: Double, x: Vector): Unit = {
     x match {
@@ -281,7 +282,7 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * A := alpha * x * x^T^ + A
+   * A := alpha * x * x^T^ + A  执行对称秩1操作
    * @param alpha a real scalar that will be multiplied to x * x^T^.
    * @param x the vector x that contains the n elements.
    * @param A the symmetric matrix A. Size of n x n.
@@ -339,7 +340,7 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * C := alpha * A * B + beta * C
+   * C := alpha * A * B + beta * C  矩阵与矩阵相乘
    * @param alpha a scalar to scale the multiplication A * B.
    * @param A the matrix A that will be left multiplied to B. Size of m x k.
    * @param B the matrix B that will be left multiplied by A. Size of k x n.
@@ -506,7 +507,7 @@ private[spark] object BLAS extends Serializable with Logging {
   }
 
   /**
-   * y := alpha * A * x + beta * y
+   * y := alpha * A * x + beta * y  矩阵与向量相乘
    * @param alpha a scalar to scale the multiplication A * x.
    * @param A the matrix A that will be left multiplied to x. Size of m x n.
    * @param x the vector x that will be left multiplied by A. Size of n x 1.

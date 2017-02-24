@@ -108,7 +108,7 @@ class RowMatrix @Since("1.0.0") (
   }
 
   /**
-   * 矩阵 ATA 是 A 的列向量的格拉姆矩阵，而矩阵 AAT 是 A 的行向量的格拉姆矩阵
+   * 矩阵 ATA 是 A 的列向量的9，而矩阵 AAT 是 A 的行向量的格拉姆矩阵
    * Computes the Gramian matrix `A^T A`. Note that this cannot be computed on matrices with
    * more than 65535 columns.
    */

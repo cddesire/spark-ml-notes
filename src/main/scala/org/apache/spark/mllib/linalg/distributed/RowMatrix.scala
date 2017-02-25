@@ -108,7 +108,7 @@ class RowMatrix @Since("1.0.0") (
   }
 
   /**
-   * 矩阵 ATA 是 A 的列向量的9，而矩阵 AAT 是 A 的行向量的格拉姆矩阵
+   * 矩阵 ATA 是 A 的列向量的格拉姆矩阵，而矩阵 AAT 是 A 的行向量的格拉姆矩阵
    * Computes the Gramian matrix `A^T A`. Note that this cannot be computed on matrices with
    * more than 65535 columns.
    */
@@ -121,6 +121,7 @@ class RowMatrix @Since("1.0.0") (
     val nt: Int = if (n % 2 == 0) ((n / 2) * (n + 1)) else (n * ((n + 1) / 2))
 
     // Compute the upper triangular part of the gram matrix.
+   	// rows： RDD[Vector]
     val GU = rows.treeAggregate(new BDV[Double](new Array[Double](nt)))(
       seqOp = (U, v) => {
         BLAS.spr(1.0, v, U.data)

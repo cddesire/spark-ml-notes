@@ -124,6 +124,7 @@ class RowMatrix @Since("1.0.0") (
    	// rows： RDD[Vector]
     val GU = rows.treeAggregate(new BDV[Double](new Array[Double](nt)))(
       seqOp = (U, v) => {
+      	// U.data += 1.0 * v * v^T
         BLAS.spr(1.0, v, U.data)
         U
       }, combOp = (U1, U2) => U1 += U2)
@@ -224,7 +225,9 @@ class RowMatrix @Since("1.0.0") (
     object SVDMode extends Enumeration {
       val LocalARPACK, LocalLAPACK, DistARPACK = Value
     }
-
+    // ARPACK，是ARnoldi PACKage的简称，是用Fortran 77编写的数值计算软件库，针对大规模稀疏矩阵或者
+    // structured的矩阵，求部分的特征值以及对应的特征向量的。
+    // LAPACK，是Linear Algebra Package的简称，是一个标准的数值计算软件库。
     val computeMode = mode match {
       case "auto" =>
         if (k > 5000) {

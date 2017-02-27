@@ -118,6 +118,7 @@ class RowMatrix @Since("1.0.0") (
     checkNumColumns(n)
     // Computes n*(n+1)/2, avoiding overflow in the multiplication.
     // This succeeds when n <= 65535, which is checked above
+    // 上三角元素的个数
     val nt: Int = if (n % 2 == 0) ((n / 2) * (n + 1)) else (n * ((n + 1) / 2))
 
     // Compute the upper triangular part of the gram matrix.
@@ -260,6 +261,7 @@ class RowMatrix @Since("1.0.0") (
       case SVDMode.LocalARPACK =>
         require(k < n, s"k must be smaller than n in local-eigs mode but got k=$k and n=$n.")
         val G = computeGramianMatrix().toBreeze.asInstanceOf[BDM[Double]]
+        // tol: termination tolerance 
         EigenValueDecomposition.symmetricEigs(v => G * v, n, k, tol, maxIter)
       case SVDMode.LocalLAPACK =>
         // breeze (v0.10) svd latent constraint, 7 * n * n + 4 * n < Int.MaxValue
@@ -685,6 +687,7 @@ class RowMatrix @Since("1.0.0") (
 object RowMatrix {
 
   /**
+   * 根据上三角填充矩阵
    * Fills a full square matrix from its upper triangular part.
    */
   private def triuToFull(n: Int, U: Array[Double]): Matrix = {

@@ -98,6 +98,7 @@ class RowMatrix @Since("1.0.0") (
         val a = rBrz.dot(vbr.value)
         rBrz match {
           // use specialized axpy for better performance
+          // U += row.dot(v) * row
           case _: BDV[_] => brzAxpy(a, rBrz.asInstanceOf[BDV[Double]], U)
           case _: BSV[_] => brzAxpy(a, rBrz.asInstanceOf[BSV[Double]], U)
           case _ => throw new UnsupportedOperationException(
@@ -270,6 +271,7 @@ class RowMatrix @Since("1.0.0") (
         val brzSvd.SVD(uFull: BDM[Double], sigmaSquaresFull: BDV[Double], _) = brzSvd(G)
         (sigmaSquaresFull, uFull)
       case SVDMode.DistARPACK =>
+      	// 计算格拉姆矩阵（分布式）
         if (rows.getStorageLevel == StorageLevel.NONE) {
           logWarning("The input data is not directly cached, which may hurt performance if its"
             + " parent RDDs are also uncached.")

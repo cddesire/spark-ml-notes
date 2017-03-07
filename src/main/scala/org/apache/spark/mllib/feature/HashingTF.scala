@@ -43,6 +43,7 @@ class HashingTF(val numFeatures: Int) extends Serializable {
 
   /**
    * Returns the index of the input term.
+   * (term.## % numFeatures) + (term.## < 0 ? numFeatures : 0)
    */
   @Since("1.1.0")
   def indexOf(term: Any): Int = Utils.nonNegativeMod(term.##, numFeatures)
@@ -52,11 +53,14 @@ class HashingTF(val numFeatures: Int) extends Serializable {
    */
   @Since("1.1.0")
   def transform(document: Iterable[_]): Vector = {
+    // 词频向量 
     val termFrequencies = mutable.HashMap.empty[Int, Double]
     document.foreach { term =>
+      // 通过term找到下标
       val i = indexOf(term)
       termFrequencies.put(i, termFrequencies.getOrElse(i, 0.0) + 1.0)
     }
+    // 转化为一个稀疏的向量
     Vectors.sparse(numFeatures, termFrequencies.toSeq)
   }
 
@@ -70,6 +74,8 @@ class HashingTF(val numFeatures: Int) extends Serializable {
 
   /**
    * Transforms the input document to term frequency vectors.
+   *  val documents: RDD[Seq[String]] = sc.textFile("...").map(_.split(" ").toSeq)
+   * 源数据为一篇文章一行，所有文章的词频向量，一篇文章一个向量
    */
   @Since("1.1.0")
   def transform[D <: Iterable[_]](dataset: RDD[D]): RDD[Vector] = {

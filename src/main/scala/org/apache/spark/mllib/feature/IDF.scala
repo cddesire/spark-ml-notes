@@ -35,6 +35,7 @@ import org.apache.spark.rdd.RDD
  *
  * @param minDocFreq minimum of documents in which a term
  *                   should appear for filtering
+ *        某个term至少在minDocFreq多文档中出现过
  */
 @Since("1.1.0")
 class IDF @Since("1.2.0") (@Since("1.2.0") val minDocFreq: Int) {
@@ -45,13 +46,13 @@ class IDF @Since("1.2.0") (@Since("1.2.0") val minDocFreq: Int) {
   // TODO: Allow different IDF formulations.
 
   /**
-   * Computes the inverse document frequency.
+   * Computes the inverse document frequency. val idf = new IDF().fit(tf)
+   * Vector为termFrequencies
    * @param dataset an RDD of term frequency vectors
    */
   @Since("1.1.0")
   def fit(dataset: RDD[Vector]): IDFModel = {
-    val idf = dataset.treeAggregate(new IDF.DocumentFrequencyAggregator(
-          minDocFreq = minDocFreq))(
+    val idf = dataset.treeAggregate(new IDF.DocumentFrequencyAggregator(minDocFreq = minDocFreq))(
       seqOp = (df, v) => df.add(v),
       combOp = (df1, df2) => df1.merge(df2)
     ).idf()
@@ -71,11 +72,15 @@ class IDF @Since("1.2.0") (@Since("1.2.0") val minDocFreq: Int) {
 private object IDF {
 
   /** Document frequency aggregator. */
+  /** 一个partition里面的聚合结果，成员 m 表示该partition里有多少篇文章，
+    df: BDV[Long] 表示词出现的文档频率向量，向量的每个元素表示这个词在多少篇文章中出现过。*/
   class DocumentFrequencyAggregator(val minDocFreq: Int) extends Serializable {
 
     /** number of documents */
+    /** 文档数量 */
     private var m = 0L
     /** document frequency vector */
+    /** 文档频率向量 */
     private var df: BDV[Long] = _
 
 
@@ -174,6 +179,7 @@ class IDFModel private[spark] (@Since("1.1.0") val idf: Vector) extends Serializ
    */
   @Since("1.1.0")
   def transform(dataset: RDD[Vector]): RDD[Vector] = {
+    // 逆文档词频向量idf进行广播
     val bcIdf = dataset.context.broadcast(idf)
     dataset.mapPartitions(iter => iter.map(v => IDFModel.transform(bcIdf.value, v)))
   }

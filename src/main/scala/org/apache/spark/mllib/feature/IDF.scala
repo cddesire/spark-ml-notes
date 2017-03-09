@@ -80,13 +80,14 @@ private object IDF {
     /** 文档数量 */
     private var m = 0L
     /** document frequency vector */
-    /** 文档频率向量 */
+    /** 文件频率DF是包含词语的文档的个数 */
     private var df: BDV[Long] = _
 
 
     def this() = this(0)
 
     /** Adds a new document. */
+    /** 新文档的词加入到 df 中 */
     def add(doc: Vector): this.type = {
       if (isEmpty) {
         df = BDV.zeros(doc.size)
@@ -152,6 +153,7 @@ private object IDF {
          * we just omit changing those entries.
          */
         if (df(j) >= minDocFreq) {
+          // IDF = log((查找的文章总数　+ 1) / (包含该词的文章数　+ 1))
           inv(j) = math.log((m + 1.0) / (df(j) + 1.0))
         }
         j += 1

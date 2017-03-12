@@ -95,12 +95,15 @@ class IDFSuite extends SparkFunSuite with MLlibTestSparkContext {
       assert(tfidf2.indices === Array(1))
       assert(tfidf2.values(0) ~== (1.0 * expected(1)) absTol 1e-12)
     }
+    
     // Transforms a RDD
     val tfidf = model.transform(termFrequencies).collect()
     assertHelper(tfidf)
+    
     // Transforms local vectors
     val localTfidf = localTermFrequencies.map(model.transform(_)).toArray
     assertHelper(localTfidf)
+    
   }
 
 }

@@ -79,6 +79,7 @@ class IDFSuite extends SparkFunSuite with MLlibTestSparkContext {
         0
       }
     })
+    
     assert(model.idf ~== expected absTol 1e-12)
 
     val assertHelper = (tfidf: Array[Vector]) => {

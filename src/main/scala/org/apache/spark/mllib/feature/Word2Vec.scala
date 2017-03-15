@@ -44,11 +44,11 @@ import org.apache.spark.sql.SQLContext
  *  Entry in vocabulary
  */
 private case class VocabWord(
-  var word: String,
-  var cn: Int,
-  var point: Array[Int],
-  var code: Array[Int],
-  var codeLen: Int
+  var word: String,  //  分词
+  var cn: Int,  //  计数
+  var point: Array[Int],  //  存储路径，即经过得结点
+  var code: Array[Int],  //  记录Huffman编码
+  var codeLen: Int  //  存储到达该叶子结点，要经过多少个结点
 )
 
 /**
@@ -70,7 +70,7 @@ private case class VocabWord(
  */
 @Since("1.1.0")
 class Word2Vec extends Serializable with Logging {
-
+  //  http://blog.csdn.net/liuyuemaicha/article/details/52610911
   private var vectorSize = 100
   private var learningRate = 0.025
   private var numPartitions = 1

@@ -33,6 +33,7 @@ class Word2VecSuite extends SparkFunSuite with MLlibTestSparkContext {
     val doc = sc.parallelize(localDoc)
       .map(line => line.split(" ").toSeq)
     val model = new Word2Vec().setVectorSize(10).setSeed(42L).fit(doc)
+    // 同义词
     val syms = model.findSynonyms("a", 2)
     assert(syms.length == 2)
     assert(syms(0)._1 == "b")

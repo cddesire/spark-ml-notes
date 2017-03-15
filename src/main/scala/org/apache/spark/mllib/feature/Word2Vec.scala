@@ -44,11 +44,11 @@ import org.apache.spark.sql.SQLContext
  *  Entry in vocabulary
  */
 private case class VocabWord(
-  var word: String,  //  分词
-  var cn: Int,  //  计数
-  var point: Array[Int],  //  存储路径，即经过得结点
-  var code: Array[Int],  //  记录Huffman编码
-  var codeLen: Int  //  存储到达该叶子结点，要经过多少个结点
+  var word: String,        //  分词
+  var cn: Int,             //  计数
+  var point: Array[Int],   //  在huffman tree中的到达分词（word）路径中的所有内部节点
+  var code: Array[Int],    //  word的Huffman编码
+  var codeLen: Int         //  code长度，到达叶子结点，要经过多少个结点
 )
 
 /**
@@ -67,6 +67,11 @@ private case class VocabWord(
  * Efficient Estimation of Word Representations in Vector Space
  * and
  * Distributed Representations of Words and Phrases and their Compositionality.
+ *
+ * Usage:
+ * val model = new Word2Vec.fit(input)
+ * val synonyms = model.findSynonyms("1", 5)
+ *
  */
 @Since("1.1.0")
 class Word2Vec extends Serializable with Logging {
@@ -76,6 +81,7 @@ class Word2Vec extends Serializable with Logging {
   private var numPartitions = 1
   private var numIterations = 1
   private var seed = Utils.random.nextLong()
+  //  过滤单词阈值
   private var minCount = 5
 
   /**
@@ -143,20 +149,27 @@ class Word2Vec extends Serializable with Logging {
     this.minCount = minCount
     this
   }
-
+  // 过程中要用过的exp()指数运算，因此将exp事先计算好存储在table，
+  // 后面O(1)时间即可访问，EXP_TABLE_SIZE即指数函数分割成均等的区间数
   private val EXP_TABLE_SIZE = 1000
+  // 只计算exp(-6)到exp(6)，并将其均等分成1000个区间，存储于table
   private val MAX_EXP = 6
+  
   private val MAX_CODE_LENGTH = 40
+  // 句子最大长度 即包含词数
   private val MAX_SENTENCE_LENGTH = 1000
 
   /** context words from [-window, window] */
   private var window = 5
-
+  // 语料库总共词量（计重复出现）
   private var trainWordsCount = 0L
+  // 词表内单词总数
   private var vocabSize = 0
+  // 词表
   @transient private var vocab: Array[VocabWord] = null
+  // 词表反查索引 (word, count)
   @transient private var vocabHash = mutable.HashMap.empty[String, Int]
-
+  // 构造词表，统计更新上面四个量
   private def learnVocab(words: RDD[String]): Unit = {
     vocab = words.map(w => (w, 1))
       .reduceByKey(_ + _)
@@ -170,6 +183,7 @@ class Word2Vec extends Serializable with Logging {
       .collect()
       .sortWith((a, b) => a.cn > b.cn)
 
+    // 词典的元素个数
     vocabSize = vocab.length
     require(vocabSize > 0, "The vocabulary size should be > 0. You may need to check " +
       "the setting of minCount, which could be large enough to remove all your words in sentences.")
@@ -177,12 +191,13 @@ class Word2Vec extends Serializable with Logging {
     var a = 0
     while (a < vocabSize) {
       vocabHash += vocab(a).word -> a
+      // 语料中分词的数量                       
       trainWordsCount += vocab(a).cn
       a += 1
     }
     logInfo(s"vocabSize = $vocabSize, trainWordsCount = $trainWordsCount")
   }
-
+  // 创建sigmoid函数查询表
   private def createExpTable(): Array[Float] = {
     val expTable = new Array[Float](EXP_TABLE_SIZE)
     var i = 0
@@ -194,17 +209,28 @@ class Word2Vec extends Serializable with Logging {
     expTable
   }
 
+  // Huffman Tree
+  // 根据word的统计词频来构建huffman tree，并根据huffman tree中从根节点root到叶节点word
+  // 的路径 来得到word的huffman code，路径长度为code长度，如某word的huffman code为0100101。
+  // 将huffman code保存在VocabWord体
   private def createBinaryTree(): Unit = {
+    // 二叉树中所有的结点
     val count = new Array[Long](vocabSize * 2 + 1)
+    // 设置每个结点的Huffman编码：左1，右0 
     val binary = new Array[Int](vocabSize * 2 + 1)
+    // 存储每个结点的父节点
     val parentNode = new Array[Int](vocabSize * 2 + 1)
+    // 存储每个叶子结点的Huffman编码
     val code = new Array[Int](MAX_CODE_LENGTH)
+    // 存储每个叶子结点的路径（经历过哪些结点）
     val point = new Array[Int](MAX_CODE_LENGTH)
     var a = 0
+    // 初始化叶子结点，以频数作为权值,叶子：0~vocabSize-1
     while (a < vocabSize) {
       count(a) = vocab(a).cn
       a += 1
     }
+    // 10的9次方，非叶子结点，初始化为最大值
     while (a < 2 * vocabSize) {
       count(a) = 1e9.toInt
       a += 1
@@ -216,6 +242,7 @@ class Word2Vec extends Serializable with Logging {
     var min2i = 0
 
     a = 0
+    // 构造Huffman树
     while (a < vocabSize - 1) {
       if (pos1 >= 0) {
         if (count(pos1) < count(pos2)) {
@@ -247,23 +274,30 @@ class Word2Vec extends Serializable with Logging {
       binary(min2i) = 1
       a += 1
     }
+
     // Now assign binary code to each vocabulary word
     var i = 0
     a = 0
     while (a < vocabSize) {
       var b = a
       i = 0
+      // vocabSize * 2 - 2 表示根结点
       while (b != vocabSize * 2 - 2) {
+        // 第b个结点的Huffman编码是0 or 1
         code(i) = binary(b)
+        // 存储路径，经过b结点
         point(i) = b
         i += 1
         b = parentNode(b)
       }
+      // 存储到达叶子结点a，要经过多少个结点
       vocab(a).codeLen = i
       vocab(a).point(0) = vocabSize - 2
       b = 0
       while (b < i) {
+        // 记录Huffman编码
         vocab(a).code(i - b - 1) = code(b)
+        // 记录经过的结点
         vocab(a).point(i - b) = point(b) - vocabSize
         b += 1
       }
@@ -326,11 +360,13 @@ class Word2Vec extends Serializable with Logging {
     val syn1Global = new Array[Float](vocabSize * vectorSize)
     var alpha = learningRate
     for (k <- 1 to numIterations) {
+      // 对每条句子进行向量计算：idx表示分词的目录，iter表示句子的起始地址
       val partial = newSentences.mapPartitionsWithIndex { case (idx, iter) =>
         val random = new XORShiftRandom(seed ^ ((idx + 1) << 16) ^ ((-k - 1) << 8))
         val syn0Modify = new Array[Int](vocabSize)
         val syn1Modify = new Array[Int](vocabSize)
         val model = iter.foldLeft((syn0Global, syn1Global, 0L, 0L)) {
+          // syn0为所有word的vector，syn1为huffman tree中所有内部节点的vector
           case ((syn0, syn1, lastWordCount, wordCount), sentence) =>
             var lwc = lastWordCount
             var wc = wordCount
@@ -345,23 +381,31 @@ class Word2Vec extends Serializable with Logging {
             wc += sentence.size
             var pos = 0
             while (pos < sentence.size) {
+              // 这条句子中第pos个分词
               val word = sentence(pos)
+              // 在window范围内随机取出一个词b 
               val b = random.nextInt(window)
               // Train Skip-gram
               var a = b
+              // 此处循环是以pos为中心的skip-gram，即Context(w)中分词的向量计算
               while (a < window * 2 + 1 - b) {
                 if (a != window) {
+                  // c 是以 pos 为中心，所要表征Context(w)中的一个分词
                   val c = pos - window + a
                   if (c >= 0 && c < sentence.size) {
+                    // c是通过pos词得到的，即Huffman树的叶子结点，也就是lastWord
                     val lastWord = sentence(c)
                     val l1 = lastWord * vectorSize
+                    // 用来存储Context(w)中各分词向量对分词w的贡献向量值
                     val neu1e = new Array[Float](vectorSize)
                     // Hierarchical softmax
                     var d = 0
+                    // Huffman树中到达单词word，要经过结点数为 codeLen，这里从根节点开始遍历Huffman树
                     while (d < bcVocab.value(word).codeLen) {
                       val inner = bcVocab.value(word).point(d)
                       val l2 = inner * vectorSize
                       // Propagate hidden -> output
+                      // syn0 * syn1 两向量相乘
                       var f = blas.sdot(vectorSize, syn0, l1, 1, syn1, l2, 1)
                       if (f > -MAX_EXP && f < MAX_EXP) {
                         val ind = ((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2.0)).toInt
@@ -383,7 +427,9 @@ class Word2Vec extends Serializable with Logging {
             }
             (syn0, syn1, lwc, wc)
         }
+        // syn0 为叶子结点向量，即分词向量
         val syn0Local = model._1
+        // syn1 为非叶子结点向量，即参数向量
         val syn1Local = model._2
         // Only output modified vectors.
         Iterator.tabulate(vocabSize) { index =>
@@ -400,6 +446,7 @@ class Word2Vec extends Serializable with Logging {
           }
         }.flatten
       }
+      // 处理完每条句子的向量后，对所有语句中相同分词所对应的向量相加
       val synAgg = partial.reduceByKey { case (v1, v2) =>
           blas.saxpy(vectorSize, 1.0f, v2, 1, v1, 1)
           v1

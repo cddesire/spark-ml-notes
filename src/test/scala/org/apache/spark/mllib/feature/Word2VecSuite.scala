@@ -72,7 +72,6 @@ class Word2VecSuite extends SparkFunSuite with MLlibTestSparkContext {
   }
 
   test("model load / save") {
-
     val word2VecMap = Map(
       ("china", Array(0.50f, 0.50f, 0.50f, 0.50f)),
       ("japan", Array(0.40f, 0.50f, 0.50f, 0.50f)),
@@ -80,10 +79,8 @@ class Word2VecSuite extends SparkFunSuite with MLlibTestSparkContext {
       ("korea", Array(0.45f, 0.60f, 0.60f, 0.60f))
     )
     val model = new Word2VecModel(word2VecMap)
-
     val tempDir = Utils.createTempDir()
     val path = tempDir.toURI.toString
-
     try {
       model.save(sc, path)
       val sameModel = Word2VecModel.load(sc, path)

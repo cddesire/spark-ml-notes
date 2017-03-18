@@ -212,7 +212,7 @@ class Word2Vec extends Serializable with Logging {
   // Huffman Tree
   // 根据word的统计词频来构建huffman tree，并根据huffman tree中从根节点root到叶节点word
   // 的路径 来得到word的huffman code，路径长度为code长度，如某word的huffman code为0100101。
-  // 将huffman code保存在VocabWord体
+  // 将huffman code保存在VocabWord
   private def createBinaryTree(): Unit = {
     // 二叉树中所有的结点
     val count = new Array[Long](vocabSize * 2 + 1)

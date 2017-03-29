@@ -68,10 +68,7 @@ class SVMModel @Since("1.1.0") (
     this
   }
 
-  override protected def predictPoint(
-      dataMatrix: Vector,
-      weightMatrix: Vector,
-      intercept: Double) = {
+  override protected def predictPoint(dataMatrix: Vector, weightMatrix: Vector, intercept: Double) = {
     val margin = weightMatrix.toBreeze.dot(dataMatrix.toBreeze) + intercept
     threshold match {
       case Some(t) => if (margin > t) 1.0 else 0.0
@@ -138,6 +135,7 @@ class SVMWithSGD private (
   private val gradient = new HingeGradient()
   // SquaredL2Updater: R(w) = 1/2 ||w||^2
   private val updater = new SquaredL2Updater()
+  
   @Since("0.8.0")
   override val optimizer = new GradientDescent(gradient, updater)
     .setStepSize(stepSize)

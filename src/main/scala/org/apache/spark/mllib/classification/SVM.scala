@@ -130,18 +130,20 @@ class SVMWithSGD private (
     private var numIterations: Int,
     private var regParam: Double,
     private var miniBatchFraction: Double)
+
   extends GeneralizedLinearAlgorithm[SVMModel] with Serializable {
   // HingeGradient: -(2y - 1)*x
   private val gradient = new HingeGradient()
   // SquaredL2Updater: R(w) = 1/2 ||w||^2
   private val updater = new SquaredL2Updater()
-  
+
   @Since("0.8.0")
   override val optimizer = new GradientDescent(gradient, updater)
-    .setStepSize(stepSize)
-    .setNumIterations(numIterations)
-    .setRegParam(regParam)
-    .setMiniBatchFraction(miniBatchFraction)
+                                .setStepSize(stepSize)
+                                .setNumIterations(numIterations)
+                                .setRegParam(regParam)
+                                .setMiniBatchFraction(miniBatchFraction)
+    
   override protected val validators = List(DataValidators.binaryLabelValidator)
 
   /**
@@ -186,8 +188,7 @@ object SVMWithSGD {
       regParam: Double,
       miniBatchFraction: Double,
       initialWeights: Vector): SVMModel = {
-    new SVMWithSGD(stepSize, numIterations, regParam, miniBatchFraction)
-      .run(input, initialWeights)
+    new SVMWithSGD(stepSize, numIterations, regParam, miniBatchFraction).run(input, initialWeights)
   }
 
   /**

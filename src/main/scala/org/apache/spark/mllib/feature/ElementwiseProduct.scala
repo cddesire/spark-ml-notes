@@ -41,6 +41,7 @@ class ElementwiseProduct @Since("1.4.0") (
     require(vector.size == scalingVec.size,
       s"vector sizes do not match: Expected ${scalingVec.size} but found ${vector.size}")
     vector match {
+      // 稠密
       case dv: DenseVector =>
         val values: Array[Double] = dv.values.clone()
         val dim = scalingVec.size
@@ -50,6 +51,7 @@ class ElementwiseProduct @Since("1.4.0") (
           i += 1
         }
         Vectors.dense(values)
+      // 稀疏
       case SparseVector(size, indices, vs) =>
         val values = vs.clone()
         val dim = values.length

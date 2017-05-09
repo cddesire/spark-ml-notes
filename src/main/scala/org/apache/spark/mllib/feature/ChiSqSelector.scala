@@ -130,14 +130,12 @@ object ChiSqSelectorModel extends Loader[ChiSqSelectorModel] {
     /** Model data for import/export */
     case class Data(feature: Int)
 
-    private[feature]
-    val thisClassName = "org.apache.spark.mllib.feature.ChiSqSelectorModel"
+    private[feature] val thisClassName = "org.apache.spark.mllib.feature.ChiSqSelectorModel"
 
     def save(sc: SparkContext, model: ChiSqSelectorModel, path: String): Unit = {
       val sqlContext = SQLContext.getOrCreate(sc)
       import sqlContext.implicits._
-      val metadata = compact(render(
-        ("class" -> thisClassName) ~ ("version" -> thisFormatVersion)))
+      val metadata = compact(render(("class" -> thisClassName) ~ ("version" -> thisFormatVersion)))
       sc.parallelize(Seq(metadata), 1).saveAsTextFile(Loader.metadataPath(path))
 
       // Create Parquet data.

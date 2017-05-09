@@ -117,4 +117,5 @@ private[mllib] object RandomRDD {
     generator.setSeed(partition.seed)
     Iterator.fill(partition.size)(new DenseVector(Array.fill(vectorSize)(generator.nextValue())))
   }
+    
 }

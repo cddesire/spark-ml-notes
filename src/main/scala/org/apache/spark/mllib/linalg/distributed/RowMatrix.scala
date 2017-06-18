@@ -84,6 +84,7 @@ class RowMatrix @Since("1.0.0") (
   }
 
   /**
+   * 格拉姆矩阵
    * Multiplies the Gramian matrix `A^T A` by a dense vector on the right without computing `A^T A`.
    *
    * @param v a dense vector whose length must match the number of columns of this matrix

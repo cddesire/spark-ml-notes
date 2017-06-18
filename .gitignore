@@ -1,0 +1,9 @@
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+spark-mllib_2.10.iml
+
+.idea/*

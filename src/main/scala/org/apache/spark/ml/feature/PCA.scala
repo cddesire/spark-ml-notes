@@ -18,6 +18,7 @@
 package org.apache.spark.ml.feature
 
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.yarn.webapp.Params
 
 import org.apache.spark.annotation.{Experimental, Since}
 import org.apache.spark.ml._
@@ -37,6 +38,7 @@ private[feature] trait PCAParams extends Params with HasInputCol with HasOutputC
 
   /**
    * The number of principal components.
+ *
    * @group param
    */
   final val k: IntParam = new IntParam(this, "k", "the number of principal components")

@@ -26,6 +26,7 @@ import org.netlib.util.{intW, doubleW}
  */
 private[mllib] object EigenValueDecomposition {
   /**
+   * 使用ARPACK计算对称方阵最大的k个特征值和特征向量
    * Compute the leading k eigenvalues and eigenvectors on a symmetric square matrix using ARPACK.
    * The caller needs to ensure that the input matrix is real symmetric. This function requires
    * memory for `n*(4*k+4)` doubles.
@@ -52,7 +53,6 @@ private[mllib] object EigenValueDecomposition {
     require(n > k, s"Number of required eigenvalues $k must be smaller than matrix dimension $n")
 
     val arpack = ARPACK.getInstance()
-
     // tolerance used in stopping criterion
     val tolW = new doubleW(tol)
     // number of desired eigenvalues, 0 < nev < n
@@ -63,6 +63,8 @@ private[mllib] object EigenValueDecomposition {
     val ncv = math.min(2 * k, n)
 
     // "I" for standard eigenvalue problem, "G" for generalized eigenvalue problem
+    // standard eigenvalue problem A*x = lambda*x
+    // generalized eigenvalue problem A*x = lambda*B*x
     val bmat = "I"
     // "LM" : compute the NEV largest (in magnitude) eigenvalues
     val which = "LM"
@@ -87,6 +89,8 @@ private[mllib] object EigenValueDecomposition {
     var ipntr = new Array[Int](11)
 
     // call ARPACK's reverse communication, first iteration with ido = 0
+    // Reverse communication interface for the Implicitly Restarted Arnoldi Iteration.  
+    // For symmetric problems this reduces to a variant of the Lanczos method.
     arpack.dsaupd(ido, bmat, n, which, nev.`val`, tolW, resid, ncv, v, n, iparam, ipntr, workd,
       workl, workl.length, info)
 

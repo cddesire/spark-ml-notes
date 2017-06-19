@@ -17,422 +17,703 @@
 
 package org.apache.spark.mllib.linalg.distributed
 
-import scala.collection.mutable.ArrayBuffer
+import java.util.Arrays
 
-import breeze.linalg.{DenseMatrix => BDM}
+import scala.collection.mutable.ListBuffer
 
-import org.apache.spark.{Logging, Partitioner, SparkException}
+import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, SparseVector => BSV, axpy => brzAxpy,
+  svd => brzSvd, MatrixSingularException, inv}
+import breeze.numerics.{sqrt => brzSqrt}
+
+import org.apache.spark.Logging
 import org.apache.spark.annotation.Since
-import org.apache.spark.mllib.linalg.{DenseMatrix, Matrices, Matrix, SparseMatrix}
+import org.apache.spark.mllib.linalg._
+import org.apache.spark.mllib.stat.{MultivariateOnlineSummarizer, MultivariateStatisticalSummary}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.random.XORShiftRandom
 import org.apache.spark.storage.StorageLevel
 
 /**
- * A grid partitioner, which uses a regular grid to partition coordinates.
+ * Represents a row-oriented distributed Matrix with no meaningful row indices.
  *
- * @param rows Number of rows.
- * @param cols Number of columns.
- * @param rowsPerPart Number of rows per partition, which may be less at the bottom edge.
- * @param colsPerPart Number of columns per partition, which may be less at the right edge.
+ * RowMatrix是面向行的分散矩阵，没有行索引，每一行就是一个本地向量，
+ * 所以列的数量必须在整数Int范围中，可以使用RDD[Vector]实例来创建RowMatrix
+ * @param rows rows stored as an RDD[Vector]
+ * @param nRows number of rows. A non-positive value means unknown, and then the number of rows will
+ *              be determined by the number of records in the RDD `rows`.
+ * @param nCols number of columns. A non-positive value means unknown, and then the number of
+ *              columns will be determined by the size of the first row.
  */
-private[mllib] class GridPartitioner(
-    val rows: Int,
-    val cols: Int,
-    val rowsPerPart: Int,
-    val colsPerPart: Int) extends Partitioner {
-
-  require(rows > 0)
-  require(cols > 0)
-  require(rowsPerPart > 0)
-  require(colsPerPart > 0)
-
-  private val rowPartitions = math.ceil(rows * 1.0 / rowsPerPart).toInt
-  private val colPartitions = math.ceil(cols * 1.0 / colsPerPart).toInt
-
-  override val numPartitions: Int = rowPartitions * colPartitions
-
-  /**
-   * Returns the index of the partition the input coordinate belongs to.
-   *
-   * @param key The partition id i (calculated through this method for coordinate (i, j) in
-   *            `simulateMultiply`, the coordinate (i, j) or a tuple (i, j, k), where k is
-   *            the inner index used in multiplication. k is ignored in computing partitions.
-   * @return The index of the partition, which the coordinate belongs to.
-   */
-  override def getPartition(key: Any): Int = {
-    key match {
-      case i: Int => i
-      case (i: Int, j: Int) =>
-        getPartitionId(i, j)
-      case (i: Int, j: Int, _: Int) =>
-        getPartitionId(i, j)
-      case _ =>
-        throw new IllegalArgumentException(s"Unrecognized key: $key.")
-    }
-  }
-
-  /** Partitions sub-matrices as blocks with neighboring sub-matrices. */
-  private def getPartitionId(i: Int, j: Int): Int = {
-    require(0 <= i && i < rows, s"Row index $i out of range [0, $rows).")
-    require(0 <= j && j < cols, s"Column index $j out of range [0, $cols).")
-    i / rowsPerPart + j / colsPerPart * rowPartitions
-  }
-
-  override def equals(obj: Any): Boolean = {
-    obj match {
-      case r: GridPartitioner =>
-        (this.rows == r.rows) && (this.cols == r.cols) &&
-          (this.rowsPerPart == r.rowsPerPart) && (this.colsPerPart == r.colsPerPart)
-      case _ =>
-        false
-    }
-  }
-
-  override def hashCode: Int = {
-    com.google.common.base.Objects.hashCode(
-      rows: java.lang.Integer,
-      cols: java.lang.Integer,
-      rowsPerPart: java.lang.Integer,
-      colsPerPart: java.lang.Integer)
-  }
-}
-
-private[mllib] object GridPartitioner {
-
-  /** Creates a new [[GridPartitioner]] instance. */
-  def apply(rows: Int, cols: Int, rowsPerPart: Int, colsPerPart: Int): GridPartitioner = {
-    new GridPartitioner(rows, cols, rowsPerPart, colsPerPart)
-  }
-
-  /** Creates a new [[GridPartitioner]] instance with the input suggested number of partitions. */
-  def apply(rows: Int, cols: Int, suggestedNumPartitions: Int): GridPartitioner = {
-    require(suggestedNumPartitions > 0)
-    val scale = 1.0 / math.sqrt(suggestedNumPartitions)
-    val rowsPerPart = math.round(math.max(scale * rows, 1.0)).toInt
-    val colsPerPart = math.round(math.max(scale * cols, 1.0)).toInt
-    new GridPartitioner(rows, cols, rowsPerPart, colsPerPart)
-  }
-}
-
-/**
- * Represents a distributed matrix in blocks of local matrices.
- *
- * @param blocks The RDD of sub-matrix blocks ((blockRowIndex, blockColIndex), sub-matrix) that
- *               form this distributed matrix. If multiple blocks with the same index exist, the
- *               results for operations like add and multiply will be unpredictable.
- * @param rowsPerBlock Number of rows that make up each block. The blocks forming the final
- *                     rows are not required to have the given number of rows
- * @param colsPerBlock Number of columns that make up each block. The blocks forming the final
- *                     columns are not required to have the given number of columns
- * @param nRows Number of rows of this matrix. If the supplied value is less than or equal to zero,
- *              the number of rows will be calculated when `numRows` is invoked.
- * @param nCols Number of columns of this matrix. If the supplied value is less than or equal to
- *              zero, the number of columns will be calculated when `numCols` is invoked.
- */
-@Since("1.3.0")
-class BlockMatrix @Since("1.3.0") (
-    @Since("1.3.0") val blocks: RDD[((Int, Int), Matrix)],
-    @Since("1.3.0") val rowsPerBlock: Int,
-    @Since("1.3.0") val colsPerBlock: Int,
+@Since("1.0.0")
+class RowMatrix @Since("1.0.0") (
+    @Since("1.0.0") val rows: RDD[Vector],
     private var nRows: Long,
-    private var nCols: Long) extends DistributedMatrix with Logging {
+    private var nCols: Int) extends DistributedMatrix with Logging {
 
-  private type MatrixBlock = ((Int, Int), Matrix) // ((blockRowIndex, blockColIndex), sub-matrix)
+  /** Alternative constructor leaving matrix dimensions to be determined automatically. */
+  @Since("1.0.0")
+  def this(rows: RDD[Vector]) = this(rows, 0L, 0)
 
-  /**
-   * Alternate constructor for BlockMatrix without the input of the number of rows and columns.
-   *
-   * @param blocks The RDD of sub-matrix blocks ((blockRowIndex, blockColIndex), sub-matrix) that
-   *               form this distributed matrix. If multiple blocks with the same index exist, the
-   *               results for operations like add and multiply will be unpredictable.
-   * @param rowsPerBlock Number of rows that make up each block. The blocks forming the final
-   *                     rows are not required to have the given number of rows
-   * @param colsPerBlock Number of columns that make up each block. The blocks forming the final
-   *                     columns are not required to have the given number of columns
-   */
-  @Since("1.3.0")
-  def this(
-      blocks: RDD[((Int, Int), Matrix)],
-      rowsPerBlock: Int,
-      colsPerBlock: Int) = {
-    this(blocks, rowsPerBlock, colsPerBlock, 0L, 0L)
-  }
-
-  @Since("1.3.0")
-  override def numRows(): Long = {
-    if (nRows <= 0L) estimateDim()
-    nRows
-  }
-
-  @Since("1.3.0")
+  /** Gets or computes the number of columns. */
+  @Since("1.0.0")
   override def numCols(): Long = {
-    if (nCols <= 0L) estimateDim()
+    if (nCols <= 0) {
+      try {
+        // Calling `first` will throw an exception if `rows` is empty.
+        nCols = rows.first().size
+      } catch {
+        case err: UnsupportedOperationException =>
+          sys.error("Cannot determine the number of cols because it is not specified in the " +
+            "constructor and the rows RDD is empty.")
+      }
+    }
     nCols
   }
 
-  @Since("1.3.0")
-  val numRowBlocks = math.ceil(numRows() * 1.0 / rowsPerBlock).toInt
-  @Since("1.3.0")
-  val numColBlocks = math.ceil(numCols() * 1.0 / colsPerBlock).toInt
-
-  private[mllib] def createPartitioner(): GridPartitioner =
-    GridPartitioner(numRowBlocks, numColBlocks, suggestedNumPartitions = blocks.partitions.size)
-
-  private lazy val blockInfo = blocks.mapValues(block => (block.numRows, block.numCols)).cache()
-
-  /** Estimates the dimensions of the matrix. */
-  private def estimateDim(): Unit = {
-    val (rows, cols) = blockInfo.map { case ((blockRowIndex, blockColIndex), (m, n)) =>
-      (blockRowIndex.toLong * rowsPerBlock + m,
-        blockColIndex.toLong * colsPerBlock + n)
-    }.reduce { (x0, x1) =>
-      (math.max(x0._1, x1._1), math.max(x0._2, x1._2))
+  /** Gets or computes the number of rows. */
+  @Since("1.0.0")
+  override def numRows(): Long = {
+    if (nRows <= 0L) {
+      nRows = rows.count()
+      if (nRows == 0L) {
+        sys.error("Cannot determine the number of rows because it is not specified in the " +
+          "constructor and the rows RDD is empty.")
+      }
     }
-    if (nRows <= 0L) nRows = rows
-    assert(rows <= nRows, s"The number of rows $rows is more than claimed $nRows.")
-    if (nCols <= 0L) nCols = cols
-    assert(cols <= nCols, s"The number of columns $cols is more than claimed $nCols.")
+    nRows
   }
 
   /**
-   * Validates the block matrix info against the matrix data (`blocks`) and throws an exception if
-   * any error is found.
+   * 格拉姆矩阵
+   * Multiplies the Gramian matrix `A^T A` by a dense vector on the right without computing `A^T A`.
+   *
+   * @param v a dense vector whose length must match the number of columns of this matrix
+   * @return a dense vector representing the product
    */
-  @Since("1.3.0")
-  def validate(): Unit = {
-    logDebug("Validating BlockMatrix...")
-    // check if the matrix is larger than the claimed dimensions
-    estimateDim()
-    logDebug("BlockMatrix dimensions are okay...")
+  private[mllib] def multiplyGramianMatrixBy(v: BDV[Double]): BDV[Double] = {
+    val n = numCols().toInt
+    val vbr = rows.context.broadcast(v)
+    rows.treeAggregate(BDV.zeros[Double](n))(
+      seqOp = (U, r) => {
+        val rBrz = r.toBreeze
+        val a = rBrz.dot(vbr.value)
+        rBrz match {
+          // use specialized axpy for better performance
+          // U += row.dot(v) * row
+          case _: BDV[_] => brzAxpy(a, rBrz.asInstanceOf[BDV[Double]], U)
+          case _: BSV[_] => brzAxpy(a, rBrz.asInstanceOf[BSV[Double]], U)
+          case _ => throw new UnsupportedOperationException(
+            s"Do not support vector operation from type ${rBrz.getClass.getName}.")
+        }
+        U
+      }, combOp = (U1, U2) => U1 += U2)
+  }
 
-    // Check if there are multiple MatrixBlocks with the same index.
-    blockInfo.countByKey().foreach { case (key, cnt) =>
-      if (cnt > 1) {
-        throw new SparkException(s"Found multiple MatrixBlocks with the indices $key. Please " +
-          "remove blocks with duplicate indices.")
+  /**
+   * 矩阵 ATA 是 A 的列向量的格拉姆矩阵，而矩阵 AAT 是 A 的行向量的格拉姆矩阵
+   * Computes the Gramian matrix `A^T A`. Note that this cannot be computed on matrices with
+   * more than 65535 columns.
+   */
+  @Since("1.0.0")
+  def computeGramianMatrix(): Matrix = {
+    val n = numCols().toInt
+    checkNumColumns(n)
+    // Computes n*(n+1)/2, avoiding overflow in the multiplication.
+    // This succeeds when n <= 65535, which is checked above
+    // 上三角元素的个数
+    val nt: Int = if (n % 2 == 0) ((n / 2) * (n + 1)) else (n * ((n + 1) / 2))
+
+    // Compute the upper triangular part of the gram matrix.
+   	// rows： RDD[Vector]
+    val GU = rows.treeAggregate(new BDV[Double](new Array[Double](nt)))(
+      seqOp = (U, v) => {
+      	// U.data += 1.0 * v * v^T
+        BLAS.spr(1.0, v, U.data)
+        U
+      }, combOp = (U1, U2) => U1 += U2)
+
+    RowMatrix.triuToFull(n, GU.data)
+  }
+
+  private def checkNumColumns(cols: Int): Unit = {
+    if (cols > 65535) {
+      throw new IllegalArgumentException(s"Argument with more than 65535 cols: $cols")
+    }
+    if (cols > 10000) {
+      val memMB = (cols.toLong * cols) / 125000
+      logWarning(s"$cols columns will require at least $memMB megabytes of memory!")
+    }
+  }
+
+  /**
+   * Computes singular value decomposition of this matrix. Denote this matrix by A (m x n). This
+   * will compute matrices U, S, V such that A ~= U * S * V', where S contains the leading k
+   * singular values, U and V contain the corresponding singular vectors.
+   *
+   * At most k largest non-zero singular values and associated vectors are returned. If there are k
+   * such values, then the dimensions of the return will be:
+   *  - U is a RowMatrix of size m x k that satisfies U' * U = eye(k),
+   *  - s is a Vector of size k, holding the singular values in descending order,
+   *  - V is a Matrix of size n x k that satisfies V' * V = eye(k).
+   *
+   * We assume n is smaller than m, though this is not strictly required.
+   * The singular values and the right singular vectors are derived
+   * from the eigenvalues and the eigenvectors of the Gramian matrix A' * A. U, the matrix
+   * storing the right singular vectors, is computed via matrix multiplication as
+   * U = A * (V * S^-1^), if requested by user. The actual method to use is determined
+   * automatically based on the cost:
+   *  - If n is small (n &lt; 100) or k is large compared with n (k &gt; n / 2), we compute
+   *    the Gramian matrix first and then compute its top eigenvalues and eigenvectors locally
+   *    on the driver. This requires a single pass with O(n^2^) storage on each executor and
+   *    on the driver, and O(n^2^ k) time on the driver.
+   *  - Otherwise, we compute (A' * A) * v in a distributive way and send it to ARPACK's DSAUPD to
+   *    compute (A' * A)'s top eigenvalues and eigenvectors on the driver node. This requires O(k)
+   *    passes, O(n) storage on each executor, and O(n k) storage on the driver.
+   *
+   * Several internal parameters are set to default values. The reciprocal condition number rCond
+   * is set to 1e-9. All singular values smaller than rCond * sigma(0) are treated as zeros, where
+   * sigma(0) is the largest singular value. The maximum number of Arnoldi update iterations for
+   * ARPACK is set to 300 or k * 3, whichever is larger. The numerical tolerance for ARPACK's
+   * eigen-decomposition is set to 1e-10.
+   *
+   * @note The conditions that decide which method to use internally and the default parameters are
+   *       subject to change.
+   *
+   * @param k number of leading singular values to keep (0 &lt; k &lt;= n).
+   *          It might return less than k if
+   *          there are numerically zero singular values or there are not enough Ritz values
+   *          converged before the maximum number of Arnoldi update iterations is reached (in case
+   *          that matrix A is ill-conditioned).
+   * @param computeU whether to compute U
+   * @param rCond the reciprocal condition number. All singular values smaller than rCond * sigma(0)
+   *              are treated as zero, where sigma(0) is the largest singular value.
+   * @return SingularValueDecomposition(U, s, V). U = null if computeU = false.
+   */
+  @Since("1.0.0")
+  def computeSVD(
+      k: Int,
+      computeU: Boolean = false,
+      rCond: Double = 1e-9): SingularValueDecomposition[RowMatrix, Matrix] = {
+    // maximum number of Arnoldi update iterations for invoking ARPACK
+    val maxIter = math.max(300, k * 3)
+    // numerical tolerance for invoking ARPACK
+    val tol = 1e-10
+    computeSVD(k, computeU, rCond, maxIter, tol, "auto")
+  }
+
+  /**
+   * The actual SVD implementation, visible for testing.
+   *
+   * @param k number of leading singular values to keep (0 &lt; k &lt;= n)
+   * @param computeU whether to compute U
+   * @param rCond the reciprocal condition number
+   * @param maxIter max number of iterations (if ARPACK is used)
+   * @param tol termination tolerance (if ARPACK is used)
+   * @param mode computation mode (auto: determine automatically which mode to use,
+   *             local-svd: compute gram matrix and computes its full SVD locally,
+   *             local-eigs: compute gram matrix and computes its top eigenvalues locally,
+   *             dist-eigs: compute the top eigenvalues of the gram matrix distributively)
+   * @return SingularValueDecomposition(U, s, V). U = null if computeU = false.
+   */
+  private[mllib] def computeSVD(
+      k: Int,
+      computeU: Boolean,
+      rCond: Double,
+      maxIter: Int,
+      tol: Double,
+      mode: String): SingularValueDecomposition[RowMatrix, Matrix] = {
+    val n = numCols().toInt
+    require(k > 0 && k <= n, s"Requested k singular values but got k=$k and numCols=$n.")
+
+    object SVDMode extends Enumeration {
+      val LocalARPACK, LocalLAPACK, DistARPACK = Value
+    }
+    // ARPACK，是ARnoldi PACKage的简称，是用Fortran 77编写的数值计算软件库，针对大规模稀疏矩阵或者
+    // structured的矩阵，求部分的特征值以及对应的特征向量的。
+    // LAPACK，是Linear Algebra Package的简称，是一个标准的数值计算软件库。
+    val computeMode = mode match {
+      case "auto" =>
+        if (k > 5000) {
+          logWarning(s"computing svd with k=$k and n=$n, please check necessity")
+        }
+
+        // TODO: The conditions below are not fully tested.
+        if (n < 100 || (k > n / 2 && n <= 15000)) {
+          // 格拉姆矩阵是半正定的，反之每个半正定矩阵是某些向量的格拉姆矩阵。
+          // 如果向量是随机变量，所得格拉姆矩阵是协方差矩阵。
+          // If n is small or k is large compared with n, we better compute the Gramian matrix first
+          // and then compute its eigenvalues locally, instead of making multiple passes.
+          if (k < n / 3) {
+            SVDMode.LocalARPACK
+          } else {
+            SVDMode.LocalLAPACK
+          }
+        } else {
+          // If k is small compared with n, we use ARPACK with distributed multiplication.
+          SVDMode.DistARPACK
+        }
+      case "local-svd" => SVDMode.LocalLAPACK
+      case "local-eigs" => SVDMode.LocalARPACK
+      case "dist-eigs" => SVDMode.DistARPACK
+      case _ => throw new IllegalArgumentException(s"Do not support mode $mode.")
+    }
+
+    // Compute the eigen-decomposition of A' * A.
+    val (sigmaSquares: BDV[Double], u: BDM[Double]) = computeMode match {
+      case SVDMode.LocalARPACK =>
+        require(k < n, s"k must be smaller than n in local-eigs mode but got k=$k and n=$n.")
+        val G = computeGramianMatrix().toBreeze.asInstanceOf[BDM[Double]]
+        // tol: termination tolerance 
+        EigenValueDecomposition.symmetricEigs(v => G * v, n, k, tol, maxIter)
+      case SVDMode.LocalLAPACK =>
+        // breeze (v0.10) svd latent constraint, 7 * n * n + 4 * n < Int.MaxValue
+        require(n < 17515, s"$n exceeds the breeze svd capability")
+        val G = computeGramianMatrix().toBreeze.asInstanceOf[BDM[Double]]
+        val brzSvd.SVD(uFull: BDM[Double], sigmaSquaresFull: BDV[Double], _) = brzSvd(G)
+        (sigmaSquaresFull, uFull)
+      case SVDMode.DistARPACK =>
+      	// 计算格拉姆矩阵（分布式）
+        if (rows.getStorageLevel == StorageLevel.NONE) {
+          logWarning("The input data is not directly cached, which may hurt performance if its"
+            + " parent RDDs are also uncached.")
+        }
+        require(k < n, s"k must be smaller than n in dist-eigs mode but got k=$k and n=$n.")
+        EigenValueDecomposition.symmetricEigs(multiplyGramianMatrixBy, n, k, tol, maxIter)
+    }
+
+    val sigmas: BDV[Double] = brzSqrt(sigmaSquares)
+
+    // Determine the effective rank.
+    val sigma0 = sigmas(0)
+    val threshold = rCond * sigma0
+    var i = 0
+    // sigmas might have a length smaller than k, if some Ritz values do not satisfy the convergence
+    // criterion specified by tol after max number of iterations.
+    // Thus use i < min(k, sigmas.length) instead of i < k.
+    if (sigmas.length < k) {
+      logWarning(s"Requested $k singular values but only found ${sigmas.length} converged.")
+    }
+    while (i < math.min(k, sigmas.length) && sigmas(i) >= threshold) {
+      i += 1
+    }
+    val sk = i
+
+    if (sk < k) {
+      logWarning(s"Requested $k singular values but only found $sk nonzeros.")
+    }
+
+    // Warn at the end of the run as well, for increased visibility.
+    if (computeMode == SVDMode.DistARPACK && rows.getStorageLevel == StorageLevel.NONE) {
+      logWarning("The input data was not directly cached, which may hurt performance if its"
+        + " parent RDDs are also uncached.")
+    }
+
+    val s = Vectors.dense(Arrays.copyOfRange(sigmas.data, 0, sk))
+    val V = Matrices.dense(n, sk, Arrays.copyOfRange(u.data, 0, n * sk))
+
+    if (computeU) {
+      // N = Vk * Sk^{-1}
+      val N = new BDM[Double](n, sk, Arrays.copyOfRange(u.data, 0, n * sk))
+      var i = 0
+      var j = 0
+      while (j < sk) {
+        i = 0
+        val sigma = sigmas(j)
+        while (i < n) {
+          N(i, j) /= sigma
+          i += 1
+        }
+        j += 1
+      }
+      val U = this.multiply(Matrices.fromBreeze(N))
+      SingularValueDecomposition(U, s, V)
+    } else {
+      SingularValueDecomposition(null, s, V)
+    }
+  }
+
+  /**
+   * Computes the covariance matrix, treating each row as an observation. Note that this cannot
+   * be computed on matrices with more than 65535 columns.
+   * @return a local dense matrix of size n x n
+   */
+  @Since("1.0.0")
+  def computeCovariance(): Matrix = {
+    val n = numCols().toInt
+    checkNumColumns(n)
+
+    val (m, mean) = rows.treeAggregate[(Long, BDV[Double])]((0L, BDV.zeros[Double](n)))(
+      seqOp = (s: (Long, BDV[Double]), v: Vector) => (s._1 + 1L, s._2 += v.toBreeze),
+      combOp = (s1: (Long, BDV[Double]), s2: (Long, BDV[Double])) =>
+        (s1._1 + s2._1, s1._2 += s2._2)
+    )
+
+    if (m <= 1) {
+      sys.error(s"RowMatrix.computeCovariance called on matrix with only $m rows." +
+        "  Cannot compute the covariance of a RowMatrix with <= 1 row.")
+    }
+    updateNumRows(m)
+
+    mean :/= m.toDouble
+
+    // We use the formula Cov(X, Y) = E[X * Y] - E[X] E[Y], which is not accurate if E[X * Y] is
+    // large but Cov(X, Y) is small, but it is good for sparse computation.
+    // TODO: find a fast and stable way for sparse data.
+
+    val G = computeGramianMatrix().toBreeze.asInstanceOf[BDM[Double]]
+
+    var i = 0
+    var j = 0
+    val m1 = m - 1.0
+    var alpha = 0.0
+    while (i < n) {
+      alpha = m / m1 * mean(i)
+      j = i
+      while (j < n) {
+        val Gij = G(i, j) / m1 - alpha * mean(j)
+        G(i, j) = Gij
+        G(j, i) = Gij
+        j += 1
+      }
+      i += 1
+    }
+
+    Matrices.fromBreeze(G)
+  }
+
+  /**
+   * Computes the top k principal components.
+   * Rows correspond to observations and columns correspond to variables.
+   * The principal components are stored a local matrix of size n-by-k.
+   * Each column corresponds for one principal component,
+   * and the columns are in descending order of component variance.
+   * The row data do not need to be "centered" first; it is not necessary for
+   * the mean of each column to be 0.
+   *
+   * Note that this cannot be computed on matrices with more than 65535 columns.
+   *
+   * @param k number of top principal components.
+   * @return a matrix of size n-by-k, whose columns are principal components
+   */
+  @Since("1.0.0")
+  def computePrincipalComponents(k: Int): Matrix = {
+    val n = numCols().toInt
+    require(k > 0 && k <= n, s"k = $k out of range (0, n = $n]")
+
+    val Cov = computeCovariance().toBreeze.asInstanceOf[BDM[Double]]
+
+    val brzSvd.SVD(u: BDM[Double], _, _) = brzSvd(Cov)
+
+    if (k == n) {
+      Matrices.dense(n, k, u.data)
+    } else {
+      Matrices.dense(n, k, Arrays.copyOfRange(u.data, 0, n * k))
+    }
+  }
+
+  /**
+   * Computes column-wise summary statistics.
+   */
+  @Since("1.0.0")
+  def computeColumnSummaryStatistics(): MultivariateStatisticalSummary = {
+    val summary = rows.treeAggregate(new MultivariateOnlineSummarizer)(
+      (aggregator, data) => aggregator.add(data),
+      (aggregator1, aggregator2) => aggregator1.merge(aggregator2))
+    updateNumRows(summary.count)
+    summary
+  }
+
+  /**
+   * Multiply this matrix by a local matrix on the right.
+   *
+   * @param B a local matrix whose number of rows must match the number of columns of this matrix
+   * @return a [[org.apache.spark.mllib.linalg.distributed.RowMatrix]] representing the product,
+   *         which preserves partitioning
+   */
+  @Since("1.0.0")
+  def multiply(B: Matrix): RowMatrix = {
+    val n = numCols().toInt
+    val k = B.numCols
+    require(n == B.numRows, s"Dimension mismatch: $n vs ${B.numRows}")
+
+    require(B.isInstanceOf[DenseMatrix],
+      s"Only support dense matrix at this time but found ${B.getClass.getName}.")
+
+    val Bb = rows.context.broadcast(B.toBreeze.asInstanceOf[BDM[Double]].toDenseVector.toArray)
+    val AB = rows.mapPartitions { iter =>
+      val Bi = Bb.value
+      iter.map { row =>
+        val v = BDV.zeros[Double](k)
+        var i = 0
+        while (i < k) {
+          v(i) = row.toBreeze.dot(new BDV(Bi, i * n, 1, n))
+          i += 1
+        }
+        Vectors.fromBreeze(v)
       }
     }
-    logDebug("MatrixBlock indices are okay...")
-    // Check if each MatrixBlock (except edges) has the dimensions rowsPerBlock x colsPerBlock
-    // The first tuple is the index and the second tuple is the dimensions of the MatrixBlock
-    val dimensionMsg = s"dimensions different than rowsPerBlock: $rowsPerBlock, and " +
-      s"colsPerBlock: $colsPerBlock. Blocks on the right and bottom edges can have smaller " +
-      s"dimensions. You may use the repartition method to fix this issue."
-    blockInfo.foreach { case ((blockRowIndex, blockColIndex), (m, n)) =>
-      if ((blockRowIndex < numRowBlocks - 1 && m != rowsPerBlock) ||
-          (blockRowIndex == numRowBlocks - 1 && (m <= 0 || m > rowsPerBlock))) {
-        throw new SparkException(s"The MatrixBlock at ($blockRowIndex, $blockColIndex) has " +
-          dimensionMsg)
-      }
-      if ((blockColIndex < numColBlocks - 1 && n != colsPerBlock) ||
-        (blockColIndex == numColBlocks - 1 && (n <= 0 || n > colsPerBlock))) {
-        throw new SparkException(s"The MatrixBlock at ($blockRowIndex, $blockColIndex) has " +
-          dimensionMsg)
-      }
+
+    new RowMatrix(AB, nRows, B.numCols)
+  }
+
+  /**
+   * Compute all cosine similarities between columns of this matrix using the brute-force
+   * approach of computing normalized dot products.
+   *
+   * @return An n x n sparse upper-triangular matrix of cosine similarities between
+   *         columns of this matrix.
+   */
+  @Since("1.2.0")
+  def columnSimilarities(): CoordinateMatrix = {
+    columnSimilarities(0.0)
+  }
+
+  /**
+   * Compute similarities between columns of this matrix using a sampling approach.
+   *
+   * The threshold parameter is a trade-off knob between estimate quality and computational cost.
+   *
+   * Setting a threshold of 0 guarantees deterministic correct results, but comes at exactly
+   * the same cost as the brute-force approach. Setting the threshold to positive values
+   * incurs strictly less computational cost than the brute-force approach, however the
+   * similarities computed will be estimates.
+   *
+   * The sampling guarantees relative-error correctness for those pairs of columns that have
+   * similarity greater than the given similarity threshold.
+   *
+   * To describe the guarantee, we set some notation:
+   * Let A be the smallest in magnitude non-zero element of this matrix.
+   * Let B be the largest  in magnitude non-zero element of this matrix.
+   * Let L be the maximum number of non-zeros per row.
+   *
+   * For example, for {0,1} matrices: A=B=1.
+   * Another example, for the Netflix matrix: A=1, B=5
+   *
+   * For those column pairs that are above the threshold,
+   * the computed similarity is correct to within 20% relative error with probability
+   * at least 1 - (0.981)^10/B^
+   *
+   * The shuffle size is bounded by the *smaller* of the following two expressions:
+   *
+   * O(n log(n) L / (threshold * A))
+   * O(m L^2^)
+   *
+   * The latter is the cost of the brute-force approach, so for non-zero thresholds,
+   * the cost is always cheaper than the brute-force approach.
+   *
+   * @param threshold Set to 0 for deterministic guaranteed correctness.
+   *                  Similarities above this threshold are estimated
+   *                  with the cost vs estimate quality trade-off described above.
+   * @return An n x n sparse upper-triangular matrix of cosine similarities
+   *         between columns of this matrix.
+   */
+  @Since("1.2.0")
+  def columnSimilarities(threshold: Double): CoordinateMatrix = {
+    require(threshold >= 0, s"Threshold cannot be negative: $threshold")
+
+    if (threshold > 1) {
+      logWarning(s"Threshold is greater than 1: $threshold " +
+      "Computation will be more efficient with promoted sparsity, " +
+      " however there is no correctness guarantee.")
     }
-    logDebug("MatrixBlock dimensions are okay...")
-    logDebug("BlockMatrix is valid!")
-  }
 
-  /** Caches the underlying RDD. */
-  @Since("1.3.0")
-  def cache(): this.type = {
-    blocks.cache()
-    this
-  }
-
-  /** Persists the underlying RDD with the specified storage level. */
-  @Since("1.3.0")
-  def persist(storageLevel: StorageLevel): this.type = {
-    blocks.persist(storageLevel)
-    this
-  }
-
-  /** Converts to CoordinateMatrix. */
-  @Since("1.3.0")
-  def toCoordinateMatrix(): CoordinateMatrix = {
-    val entryRDD = blocks.flatMap { case ((blockRowIndex, blockColIndex), mat) =>
-      val rowStart = blockRowIndex.toLong * rowsPerBlock
-      val colStart = blockColIndex.toLong * colsPerBlock
-      val entryValues = new ArrayBuffer[MatrixEntry]()
-      mat.foreachActive { (i, j, v) =>
-        if (v != 0.0) entryValues.append(new MatrixEntry(rowStart + i, colStart + j, v))
-      }
-      entryValues
+    val gamma = if (threshold < 1e-6) {
+      Double.PositiveInfinity
+    } else {
+      10 * math.log(numCols()) / threshold
     }
-    new CoordinateMatrix(entryRDD, numRows(), numCols())
+
+    columnSimilaritiesDIMSUM(computeColumnSummaryStatistics().normL2.toArray, gamma)
   }
 
-  /** Converts to IndexedRowMatrix. The number of columns must be within the integer range. */
-  @Since("1.3.0")
-  def toIndexedRowMatrix(): IndexedRowMatrix = {
-    require(numCols() < Int.MaxValue, "The number of columns must be within the integer range. " +
-      s"numCols: ${numCols()}")
-    // TODO: This implementation may be optimized
-    toCoordinateMatrix().toIndexedRowMatrix()
+  /**
+   * Compute QR decomposition for [[RowMatrix]]. The implementation is designed to optimize the QR
+   * decomposition (factorization) for the [[RowMatrix]] of a tall and skinny shape.
+   * Reference:
+   *  Paul G. Constantine, David F. Gleich. "Tall and skinny QR factorizations in MapReduce
+   *  architectures"  ([[http://dx.doi.org/10.1145/1996092.1996103]])
+   *
+   * @param computeQ whether to computeQ
+   * @return QRDecomposition(Q, R), Q = null if computeQ = false.
+   */
+  @Since("1.5.0")
+  def tallSkinnyQR(computeQ: Boolean = false): QRDecomposition[RowMatrix, Matrix] = {
+    val col = numCols().toInt
+    // split rows horizontally into smaller matrices, and compute QR for each of them
+    val blockQRs = rows.glom().map { partRows =>
+      val bdm = BDM.zeros[Double](partRows.length, col)
+      var i = 0
+      partRows.foreach { row =>
+        bdm(i, ::) := row.toBreeze.t
+        i += 1
+      }
+      breeze.linalg.qr.reduced(bdm).r
+    }
+
+    // combine the R part from previous results vertically into a tall matrix
+    val combinedR = blockQRs.treeReduce{ (r1, r2) =>
+      val stackedR = BDM.vertcat(r1, r2)
+      breeze.linalg.qr.reduced(stackedR).r
+    }
+    val finalR = Matrices.fromBreeze(combinedR.toDenseMatrix)
+    val finalQ = if (computeQ) {
+      try {
+        val invR = inv(combinedR)
+        this.multiply(Matrices.fromBreeze(invR))
+      } catch {
+        case err: MatrixSingularException =>
+          logWarning("R is not invertible and return Q as null")
+          null
+      }
+    } else {
+      null
+    }
+    QRDecomposition(finalQ, finalR)
   }
 
-  /** Collect the distributed matrix on the driver as a `DenseMatrix`. */
-  @Since("1.3.0")
-  def toLocalMatrix(): Matrix = {
-    require(numRows() < Int.MaxValue, "The number of rows of this matrix should be less than " +
-      s"Int.MaxValue. Currently numRows: ${numRows()}")
-    require(numCols() < Int.MaxValue, "The number of columns of this matrix should be less than " +
-      s"Int.MaxValue. Currently numCols: ${numCols()}")
-    require(numRows() * numCols() < Int.MaxValue, "The length of the values array must be " +
-      s"less than Int.MaxValue. Currently numRows * numCols: ${numRows() * numCols()}")
+  /**
+   * Find all similar columns using the DIMSUM sampling algorithm, described in two papers
+   *
+   * http://arxiv.org/abs/1206.2082
+   * http://arxiv.org/abs/1304.1467
+   *
+   * @param colMags A vector of column magnitudes
+   * @param gamma The oversampling parameter. For provable results, set to 10 * log(n) / s,
+   *              where s is the smallest similarity score to be estimated,
+   *              and n is the number of columns
+   * @return An n x n sparse upper-triangular matrix of cosine similarities
+   *         between columns of this matrix.
+   */
+  private[mllib] def columnSimilaritiesDIMSUM(
+      colMags: Array[Double],
+      gamma: Double): CoordinateMatrix = {
+    require(gamma > 1.0, s"Oversampling should be greater than 1: $gamma")
+    require(colMags.size == this.numCols(), "Number of magnitudes didn't match column dimension")
+    val sg = math.sqrt(gamma) // sqrt(gamma) used many times
+
+    // Don't divide by zero for those columns with zero magnitude
+    val colMagsCorrected = colMags.map(x => if (x == 0) 1.0 else x)
+
+    val sc = rows.context
+    val pBV = sc.broadcast(colMagsCorrected.map(c => sg / c))
+    val qBV = sc.broadcast(colMagsCorrected.map(c => math.min(sg, c)))
+
+    val sims = rows.mapPartitionsWithIndex { (indx, iter) =>
+      val p = pBV.value
+      val q = qBV.value
+
+      val rand = new XORShiftRandom(indx)
+      val scaled = new Array[Double](p.size)
+      iter.flatMap { row =>
+        row match {
+          case SparseVector(size, indices, values) =>
+            val nnz = indices.size
+            var k = 0
+            while (k < nnz) {
+              scaled(k) = values(k) / q(indices(k))
+              k += 1
+            }
+
+            Iterator.tabulate (nnz) { k =>
+              val buf = new ListBuffer[((Int, Int), Double)]()
+              val i = indices(k)
+              val iVal = scaled(k)
+              if (iVal != 0 && rand.nextDouble() < p(i)) {
+                var l = k + 1
+                while (l < nnz) {
+                  val j = indices(l)
+                  val jVal = scaled(l)
+                  if (jVal != 0 && rand.nextDouble() < p(j)) {
+                    buf += (((i, j), iVal * jVal))
+                  }
+                  l += 1
+                }
+              }
+              buf
+            }.flatten
+          case DenseVector(values) =>
+            val n = values.size
+            var i = 0
+            while (i < n) {
+              scaled(i) = values(i) / q(i)
+              i += 1
+            }
+            Iterator.tabulate (n) { i =>
+              val buf = new ListBuffer[((Int, Int), Double)]()
+              val iVal = scaled(i)
+              if (iVal != 0 && rand.nextDouble() < p(i)) {
+                var j = i + 1
+                while (j < n) {
+                  val jVal = scaled(j)
+                  if (jVal != 0 && rand.nextDouble() < p(j)) {
+                    buf += (((i, j), iVal * jVal))
+                  }
+                  j += 1
+                }
+              }
+              buf
+            }.flatten
+        }
+      }
+    }.reduceByKey(_ + _).map { case ((i, j), sim) =>
+      MatrixEntry(i.toLong, j.toLong, sim)
+    }
+    new CoordinateMatrix(sims, numCols(), numCols())
+  }
+
+  private[mllib] override def toBreeze(): BDM[Double] = {
     val m = numRows().toInt
     val n = numCols().toInt
-    val mem = m * n / 125000
-    if (mem > 500) logWarning(s"Storing this matrix will require $mem MB of memory!")
-    val localBlocks = blocks.collect()
-    val values = new Array[Double](m * n)
-    localBlocks.foreach { case ((blockRowIndex, blockColIndex), submat) =>
-      val rowOffset = blockRowIndex * rowsPerBlock
-      val colOffset = blockColIndex * colsPerBlock
-      submat.foreachActive { (i, j, v) =>
-        val indexOffset = (j + colOffset) * m + rowOffset + i
-        values(indexOffset) = v
+    val mat = BDM.zeros[Double](m, n)
+    var i = 0
+    rows.collect().foreach { vector =>
+      vector.foreachActive { case (j, v) =>
+        mat(i, j) = v
       }
+      i += 1
     }
-    new DenseMatrix(m, n, values)
+    mat
   }
 
-  /**
-   * Transpose this `BlockMatrix`. Returns a new `BlockMatrix` instance sharing the
-   * same underlying data. Is a lazy operation.
-   */
-  @Since("1.3.0")
-  def transpose: BlockMatrix = {
-    val transposedBlocks = blocks.map { case ((blockRowIndex, blockColIndex), mat) =>
-      ((blockColIndex, blockRowIndex), mat.transpose)
-    }
-    new BlockMatrix(transposedBlocks, colsPerBlock, rowsPerBlock, nCols, nRows)
-  }
-
-  /** Collects data and assembles a local dense breeze matrix (for test only). */
-  private[mllib] def toBreeze(): BDM[Double] = {
-    val localMat = toLocalMatrix()
-    new BDM[Double](localMat.numRows, localMat.numCols, localMat.toArray)
-  }
-
-  /**
-   * Adds two block matrices together. The matrices must have the same size and matching
-   * `rowsPerBlock` and `colsPerBlock` values. If one of the blocks that are being added are
-   * instances of [[SparseMatrix]], the resulting sub matrix will also be a [[SparseMatrix]], even
-   * if it is being added to a [[DenseMatrix]]. If two dense matrices are added, the output will
-   * also be a [[DenseMatrix]].
-   */
-  @Since("1.3.0")
-  def add(other: BlockMatrix): BlockMatrix = {
-    require(numRows() == other.numRows(), "Both matrices must have the same number of rows. " +
-      s"A.numRows: ${numRows()}, B.numRows: ${other.numRows()}")
-    require(numCols() == other.numCols(), "Both matrices must have the same number of columns. " +
-      s"A.numCols: ${numCols()}, B.numCols: ${other.numCols()}")
-    if (rowsPerBlock == other.rowsPerBlock && colsPerBlock == other.colsPerBlock) {
-      val addedBlocks = blocks.cogroup(other.blocks, createPartitioner())
-        .map { case ((blockRowIndex, blockColIndex), (a, b)) =>
-          if (a.size > 1 || b.size > 1) {
-            throw new SparkException("There are multiple MatrixBlocks with indices: " +
-              s"($blockRowIndex, $blockColIndex). Please remove them.")
-          }
-          if (a.isEmpty) {
-            new MatrixBlock((blockRowIndex, blockColIndex), b.head)
-          } else if (b.isEmpty) {
-            new MatrixBlock((blockRowIndex, blockColIndex), a.head)
-          } else {
-            val result = a.head.toBreeze + b.head.toBreeze
-            new MatrixBlock((blockRowIndex, blockColIndex), Matrices.fromBreeze(result))
-          }
-      }
-      new BlockMatrix(addedBlocks, rowsPerBlock, colsPerBlock, numRows(), numCols())
+  /** Updates or verifies the number of rows. */
+  private def updateNumRows(m: Long) {
+    if (nRows <= 0) {
+      nRows = m
     } else {
-      throw new SparkException("Cannot add matrices with different block dimensions")
+      require(nRows == m,
+        s"The number of rows $m is different from what specified or previously computed: ${nRows}.")
     }
   }
+}
 
-  /** Block (i,j) --> Set of destination partitions */
-  private type BlockDestinations = Map[(Int, Int), Set[Int]]
-
-  /**
-   * Simulate the multiplication with just block indices in order to cut costs on communication,
-   * when we are actually shuffling the matrices.
-   * The `colsPerBlock` of this matrix must equal the `rowsPerBlock` of `other`.
-   * Exposed for tests.
-   *
-   * @param other The BlockMatrix to multiply
-   * @param partitioner The partitioner that will be used for the resulting matrix `C = A * B`
-   * @return A tuple of [[BlockDestinations]]. The first element is the Map of the set of partitions
-   *         that we need to shuffle each blocks of `this`, and the second element is the Map for
-   *         `other`.
-   */
-  private[distributed] def simulateMultiply(
-      other: BlockMatrix,
-      partitioner: GridPartitioner): (BlockDestinations, BlockDestinations) = {
-    val leftMatrix = blockInfo.keys.collect() // blockInfo should already be cached
-    val rightMatrix = other.blocks.keys.collect()
-    val leftDestinations = leftMatrix.map { case (rowIndex, colIndex) =>
-      val rightCounterparts = rightMatrix.filter(_._1 == colIndex)
-      val partitions = rightCounterparts.map(b => partitioner.getPartition((rowIndex, b._2)))
-      ((rowIndex, colIndex), partitions.toSet)
-    }.toMap
-    val rightDestinations = rightMatrix.map { case (rowIndex, colIndex) =>
-      val leftCounterparts = leftMatrix.filter(_._2 == rowIndex)
-      val partitions = leftCounterparts.map(b => partitioner.getPartition((b._1, colIndex)))
-      ((rowIndex, colIndex), partitions.toSet)
-    }.toMap
-    (leftDestinations, rightDestinations)
-  }
+@Since("1.0.0")
+object RowMatrix {
 
   /**
-   * Left multiplies this [[BlockMatrix]] to `other`, another [[BlockMatrix]]. The `colsPerBlock`
-   * of this matrix must equal the `rowsPerBlock` of `other`. If `other` contains
-   * [[SparseMatrix]], they will have to be converted to a [[DenseMatrix]]. The output
-   * [[BlockMatrix]] will only consist of blocks of [[DenseMatrix]]. This may cause
-   * some performance issues until support for multiplying two sparse matrices is added.
-   *
-   * Note: The behavior of multiply has changed in 1.6.0. `multiply` used to throw an error when
-   * there were blocks with duplicate indices. Now, the blocks with duplicate indices will be added
-   * with each other.
+   * 根据上三角填充矩阵
+   * Fills a full square matrix from its upper triangular part.
    */
-  @Since("1.3.0")
-  def multiply(other: BlockMatrix): BlockMatrix = {
-    require(numCols() == other.numRows(), "The number of columns of A and the number of rows " +
-      s"of B must be equal. A.numCols: ${numCols()}, B.numRows: ${other.numRows()}. If you " +
-      "think they should be equal, try setting the dimensions of A and B explicitly while " +
-      "initializing them.")
-    if (colsPerBlock == other.rowsPerBlock) {
-      val resultPartitioner = GridPartitioner(numRowBlocks, other.numColBlocks,
-        math.max(blocks.partitions.length, other.blocks.partitions.length))
-      val (leftDestinations, rightDestinations) = simulateMultiply(other, resultPartitioner)
-      // Each block of A must be multiplied with the corresponding blocks in the columns of B.
-      val flatA = blocks.flatMap { case ((blockRowIndex, blockColIndex), block) =>
-        val destinations = leftDestinations.getOrElse((blockRowIndex, blockColIndex), Set.empty)
-        destinations.map(j => (j, (blockRowIndex, blockColIndex, block)))
+  private def triuToFull(n: Int, U: Array[Double]): Matrix = {
+    val G = new BDM[Double](n, n)
+
+    var row = 0
+    var col = 0
+    var idx = 0
+    var value = 0.0
+    while (col < n) {
+      row = 0
+      while (row < col) {
+        value = U(idx)
+        G(row, col) = value
+        G(col, row) = value
+        idx += 1
+        row += 1
       }
-      // Each block of B must be multiplied with the corresponding blocks in each row of A.
-      val flatB = other.blocks.flatMap { case ((blockRowIndex, blockColIndex), block) =>
-        val destinations = rightDestinations.getOrElse((blockRowIndex, blockColIndex), Set.empty)
-        destinations.map(j => (j, (blockRowIndex, blockColIndex, block)))
-      }
-      val newBlocks = flatA.cogroup(flatB, resultPartitioner).flatMap { case (pId, (a, b)) =>
-        a.flatMap { case (leftRowIndex, leftColIndex, leftBlock) =>
-          b.filter(_._1 == leftColIndex).map { case (rightRowIndex, rightColIndex, rightBlock) =>
-            val C = rightBlock match {
-              case dense: DenseMatrix => leftBlock.multiply(dense)
-              case sparse: SparseMatrix => leftBlock.multiply(sparse.toDense)
-              case _ =>
-                throw new SparkException(s"Unrecognized matrix type ${rightBlock.getClass}.")
-            }
-            ((leftRowIndex, rightColIndex), C.toBreeze)
-          }
-        }
-      }.reduceByKey(resultPartitioner, (a, b) => a + b).mapValues(Matrices.fromBreeze)
-      // TODO: Try to use aggregateByKey instead of reduceByKey to get rid of intermediate matrices
-      new BlockMatrix(newBlocks, rowsPerBlock, other.colsPerBlock, numRows(), other.numCols())
-    } else {
-      throw new SparkException("colsPerBlock of A doesn't match rowsPerBlock of B. " +
-        s"A.colsPerBlock: $colsPerBlock, B.rowsPerBlock: ${other.rowsPerBlock}")
+      G(col, col) = U(idx)
+      idx += 1
+      col +=1
     }
+
+    Matrices.dense(n, n, G.data)
   }
 }

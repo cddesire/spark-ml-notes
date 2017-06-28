@@ -38,12 +38,14 @@ private[feature] trait PCAParams extends Params with HasInputCol with HasOutputC
 
   /**
    * The number of principal components.
- *
+   *
    * @group param
    */
   final val k: IntParam = new IntParam(this, "k", "the number of principal components")
 
-  /** @group getParam */
+  /** 
+   * @group getParam 
+   */
   def getK: Int = $(k)
 
 }
@@ -58,13 +60,19 @@ class PCA (override val uid: String) extends Estimator[PCAModel] with PCAParams
 
   def this() = this(Identifiable.randomUID("pca"))
 
-  /** @group setParam */
+  /** 
+   * @group getParam 
+   */
   def setInputCol(value: String): this.type = set(inputCol, value)
 
-  /** @group setParam */
+  /** 
+   * @group getParam 
+   */
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
-  /** @group setParam */
+  /** 
+   * @group getParam 
+   */
   def setK(value: Int): this.type = set(k, value)
 
   /**

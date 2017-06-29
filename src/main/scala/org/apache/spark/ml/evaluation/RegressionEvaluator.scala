@@ -52,19 +52,27 @@ final class RegressionEvaluator @Since("1.4.0") (@Since("1.4.0") override val ui
     new Param(this, "metricName", "metric name in evaluation (mse|rmse|r2|mae)", allowedParams)
   }
 
-  /** @group getParam */
+  /**
+   * @group getParam
+   */
   @Since("1.4.0")
   def getMetricName: String = $(metricName)
 
-  /** @group setParam */
+  /**
+   * @group getParam
+   */
   @Since("1.4.0")
   def setMetricName(value: String): this.type = set(metricName, value)
 
-  /** @group setParam */
+  /**
+   * @group getParam
+   */
   @Since("1.4.0")
   def setPredictionCol(value: String): this.type = set(predictionCol, value)
 
-  /** @group setParam */
+  /**
+   * @group getParam
+   */
   @Since("1.4.0")
   def setLabelCol(value: String): this.type = set(labelCol, value)
 
@@ -109,6 +117,7 @@ final class RegressionEvaluator @Since("1.4.0") (@Since("1.4.0") override val ui
   @Since("1.5.0")
   override def copy(extra: ParamMap): RegressionEvaluator = defaultCopy(extra)
 }
+
 
 @Since("1.6.0")
 object RegressionEvaluator extends DefaultParamsReadable[RegressionEvaluator] {

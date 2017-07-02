@@ -93,6 +93,7 @@ class RowMatrix @Since("1.0.0") (
   private[mllib] def multiplyGramianMatrixBy(v: BDV[Double]): BDV[Double] = {
     val n = numCols().toInt
     val vbr = rows.context.broadcast(v)
+    // seqOp: (U, T) => U, combOp: (U, U) => U
     rows.treeAggregate(BDV.zeros[Double](n))(
       seqOp = (U, r) => {
         val rBrz = r.toBreeze
@@ -106,7 +107,9 @@ class RowMatrix @Since("1.0.0") (
             s"Do not support vector operation from type ${rBrz.getClass.getName}.")
         }
         U
-      }, combOp = (U1, U2) => U1 += U2)
+      },
+      combOp = (U1, U2) => U1 += U2
+    )
   }
 
   /**
@@ -128,10 +131,15 @@ class RowMatrix @Since("1.0.0") (
     val GU = rows.treeAggregate(new BDV[Double](new Array[Double](nt)))(
       seqOp = (U, v) => {
       	// U.data += 1.0 * v * v^T
+        // v 表示rows里面的每一行数据
+        // U.data: Array[Double] 存放上上三角结果数据
         BLAS.spr(1.0, v, U.data)
         U
-      }, combOp = (U1, U2) => U1 += U2)
-
+      },
+      // 将不同机器上的上三角数据汇总成一个大的Array
+      combOp = (U1, U2) => U1 += U2
+    )
+    // 根据上三角填充矩阵
     RowMatrix.triuToFull(n, GU.data)
   }
 

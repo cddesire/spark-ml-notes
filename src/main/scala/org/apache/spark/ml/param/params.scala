@@ -78,13 +78,19 @@ class Param[T](val parent: String, val name: String, val doc: String, val isVali
     }
   }
 
-  /** Creates a param pair with the given value (for Java). */
+  /** 
+   * Creates a param pair with the given value (for Java). 
+   */
   def w(value: T): ParamPair[T] = this -> value
 
-  /** Creates a param pair with the given value (for Scala). */
+  /** 
+   * Creates a param pair with the given value (for Scala). 
+   */
   def ->(value: T): ParamPair[T] = ParamPair(this, value)
 
-  /** Encodes a param value into JSON, which can be decoded by [[jsonDecode()]]. */
+  /** 
+   * Encodes a param value into JSON, which can be decoded by [[jsonDecode()]]. 
+   */
   def jsonEncode(value: T): String = {
     value match {
       case x: String =>
@@ -98,7 +104,9 @@ class Param[T](val parent: String, val name: String, val doc: String, val isVali
     }
   }
 
-  /** Decodes a param value from JSON. */
+  /** 
+    * Decodes a param value from JSON. 
+    */
   def jsonDecode(json: String): T = {
     parse(json) match {
       case JString(x) =>
@@ -135,7 +143,9 @@ class Param[T](val parent: String, val name: String, val doc: String, val isVali
 @DeveloperApi
 object ParamValidators {
 
-  /** (private[param]) Default validation always return true */
+  /** 
+   * (private[param]) Default validation always return true 
+   */
   private[param] def alwaysTrue[T]: T => Boolean = (_: T) => true
 
   /**
@@ -154,22 +164,30 @@ object ParamValidators {
         s" of unexpected input type: ${value.getClass}")
   }
 
-  /** Check if value > lowerBound */
+  /** 
+   * Check if value > lowerBound 
+   */
   def gt[T](lowerBound: Double): T => Boolean = { (value: T) =>
     getDouble(value) > lowerBound
   }
 
-  /** Check if value >= lowerBound */
+  /** 
+   * Check if value >= lowerBound 
+   */
   def gtEq[T](lowerBound: Double): T => Boolean = { (value: T) =>
     getDouble(value) >= lowerBound
   }
 
-  /** Check if value < upperBound */
+  /** 
+   * Check if value < upperBound 
+   */
   def lt[T](upperBound: Double): T => Boolean = { (value: T) =>
     getDouble(value) < upperBound
   }
 
-  /** Check if value <= upperBound */
+  /** 
+   * Check if value <= upperBound 
+   */
   def ltEq[T](upperBound: Double): T => Boolean = { (value: T) =>
     getDouble(value) <= upperBound
   }
@@ -192,7 +210,9 @@ object ParamValidators {
     lowerValid && upperValid
   }
 
-  /** Version of [[inRange()]] which uses inclusive be default: [lowerBound, upperBound] */
+  /** 
+   * Version of [[inRange()]] which uses inclusive be default: [lowerBound, upperBound] 
+   */
   def inRange[T](lowerBound: Double, upperBound: Double): T => Boolean = {
     inRange[T](lowerBound, upperBound, lowerInclusive = true, upperInclusive = true)
   }
@@ -202,12 +222,16 @@ object ParamValidators {
     allowed.contains(value)
   }
 
-  /** Check for value in an allowed set of values. */
+  /** 
+   *  Check for value in an allowed set of values. 
+   */
   def inArray[T](allowed: java.util.List[T]): T => Boolean = { (value: T) =>
     allowed.contains(value)
   }
 
-  /** Check that the array length is greater than lowerBound. */
+  /** 
+   *  Check that the array length is greater than lowerBound.
+   */
   def arrayLengthGt[T](lowerBound: Double): Array[T] => Boolean = { (value: Array[T]) =>
     value.length > lowerBound
   }
@@ -231,7 +255,9 @@ class DoubleParam(parent: String, name: String, doc: String, isValid: Double => 
 
   def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
 
-  /** Creates a param pair with the given value (for Java). */
+  /** 
+   * Creates a param pair with the given value (for Java). 
+   */
   override def w(value: Double): ParamPair[Double] = super.w(value)
 
   override def jsonEncode(value: Double): String = {
@@ -244,7 +270,9 @@ class DoubleParam(parent: String, name: String, doc: String, isValid: Double => 
 }
 
 private[param] object DoubleParam {
-  /** Encodes a param value into JValue. */
+  /** 
+   * Encodes a param value into JValue. 
+   */
   def jValueEncode(value: Double): JValue = {
     value match {
       case _ if value.isNaN =>
@@ -258,7 +286,9 @@ private[param] object DoubleParam {
     }
   }
 
-  /** Decodes a param value from JValue. */
+  /** 
+   * Decodes a param value from JValue. 
+   */
   def jValueDecode(jValue: JValue): Double = {
     jValue match {
       case JString("NaN") =>
@@ -291,7 +321,9 @@ class IntParam(parent: String, name: String, doc: String, isValid: Int => Boolea
 
   def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
 
-  /** Creates a param pair with the given value (for Java). */
+  /** 
+   * Creates a param pair with the given value (for Java). 
+   */
   override def w(value: Int): ParamPair[Int] = super.w(value)
 
   override def jsonEncode(value: Int): String = {
@@ -320,7 +352,9 @@ class FloatParam(parent: String, name: String, doc: String, isValid: Float => Bo
 
   def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
 
-  /** Creates a param pair with the given value (for Java). */
+  /** 
+   * Creates a param pair with the given value (for Java). 
+   */
   override def w(value: Float): ParamPair[Float] = super.w(value)
 
   override def jsonEncode(value: Float): String = {
@@ -334,7 +368,9 @@ class FloatParam(parent: String, name: String, doc: String, isValid: Float => Bo
 
 private object FloatParam {
 
-  /** Encodes a param value into JValue. */
+  /** 
+   * Encodes a param value into JValue. 
+   */
   def jValueEncode(value: Float): JValue = {
     value match {
       case _ if value.isNaN =>
@@ -348,7 +384,9 @@ private object FloatParam {
     }
   }
 
-  /** Decodes a param value from JValue. */
+  /** 
+   * Decodes a param value from JValue. 
+   */
   def jValueDecode(jValue: JValue): Float = {
     jValue match {
       case JString("NaN") =>
@@ -381,7 +419,9 @@ class LongParam(parent: String, name: String, doc: String, isValid: Long => Bool
 
   def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
 
-  /** Creates a param pair with the given value (for Java). */
+  /** 
+   * Creates a param pair with the given value (for Java). 
+   */
   override def w(value: Long): ParamPair[Long] = super.w(value)
 
   override def jsonEncode(value: Long): String = {
@@ -404,7 +444,9 @@ class BooleanParam(parent: String, name: String, doc: String) // No need for isV
 
   def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
 
-  /** Creates a param pair with the given value (for Java). */
+  /** 
+   * Creates a param pair with the given value (for Java). 
+   */
   override def w(value: Boolean): ParamPair[Boolean] = super.w(value)
 
   override def jsonEncode(value: Boolean): String = {
@@ -428,7 +470,9 @@ class StringArrayParam(parent: Params, name: String, doc: String, isValid: Array
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  /** Creates a param pair with a [[java.util.List]] of values (for Java and Python). */
+  /** 
+   * Creates a param pair with a [[java.util.List]] of values (for Java and Python). 
+   */
   def w(value: java.util.List[String]): ParamPair[Array[String]] = w(value.asScala.toArray)
 
   override def jsonEncode(value: Array[String]): String = {
@@ -453,7 +497,9 @@ class DoubleArrayParam(parent: Params, name: String, doc: String, isValid: Array
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  /** Creates a param pair with a [[java.util.List]] of values (for Java and Python). */
+  /** 
+   * Creates a param pair with a [[java.util.List]] of values (for Java and Python). 
+   */
   def w(value: java.util.List[java.lang.Double]): ParamPair[Array[Double]] =
     w(value.asScala.map(_.asInstanceOf[Double]).toArray)
 
@@ -483,7 +529,9 @@ class IntArrayParam(parent: Params, name: String, doc: String, isValid: Array[In
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  /** Creates a param pair with a [[java.util.List]] of values (for Java and Python). */
+  /** 
+   * Creates a param pair with a [[java.util.List]] of values (for Java and Python). 
+   */
   def w(value: java.util.List[java.lang.Integer]): ParamPair[Array[Int]] =
     w(value.asScala.map(_.asInstanceOf[Int]).toArray)
 
@@ -573,24 +621,32 @@ trait Params extends Identifiable with Serializable {
     params.map(explainParam).mkString("\n")
   }
 
-  /** Checks whether a param is explicitly set. */
+  /** 
+   * Checks whether a param is explicitly set. 
+   */
   final def isSet(param: Param[_]): Boolean = {
     shouldOwn(param)
     paramMap.contains(param)
   }
 
-  /** Checks whether a param is explicitly set or has a default value. */
+  /** 
+   * Checks whether a param is explicitly set or has a default value. 
+   */
   final def isDefined(param: Param[_]): Boolean = {
     shouldOwn(param)
     defaultParamMap.contains(param) || paramMap.contains(param)
   }
 
-  /** Tests whether this instance contains a param with a given name. */
+  /**
+   * Tests whether this instance contains a param with a given name. 
+   */
   def hasParam(paramName: String): Boolean = {
     params.exists(_.name == paramName)
   }
 
-  /** Gets a param by its name. */
+  /**
+   * Gets a param by its name. 
+   */
   def getParam(paramName: String): Param[Any] = {
     params.find(_.name == paramName).getOrElse {
       throw new NoSuchElementException(s"Param $paramName does not exist.")
@@ -647,7 +703,9 @@ trait Params extends Identifiable with Serializable {
       throw new NoSuchElementException(s"Failed to find a default value for ${param.name}"))
   }
 
-  /** An alias for [[getOrDefault()]]. */
+  /** 
+   * An alias for [[getOrDefault()]]. 
+   */
   protected final def $[T](param: Param[T]): T = getOrDefault(param)
 
   /**
@@ -729,13 +787,19 @@ trait Params extends Identifiable with Serializable {
     extractParamMap(ParamMap.empty)
   }
 
-  /** Internal param map for user-supplied values. */
+  /** 
+   * Internal param map for user-supplied values. 
+   */
   private val paramMap: ParamMap = ParamMap.empty
 
-  /** Internal param map for default values. */
+  /** 
+   * Internal param map for default values. 
+   */
   private val defaultParamMap: ParamMap = ParamMap.empty
 
-  /** Validates that the input param belongs to this instance. */
+  /** 
+   * Validates that the input param belongs to this instance. 
+   */
   private def shouldOwn(param: Param[_]): Unit = {
     require(param.parent == uid && hasParam(param.name), s"Param $param does not belong to $this.")
   }

@@ -36,7 +36,9 @@ import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.util.collection.OpenHashSet
 
-/** Private trait for params for VectorIndexer and VectorIndexerModel */
+/**
+ * Private trait for params for VectorIndexer and VectorIndexerModel
+ */
 private[ml] trait VectorIndexerParams extends Params with HasInputCol with HasOutputCol {
 
   /**
@@ -99,13 +101,19 @@ class VectorIndexer(override val uid: String) extends Estimator[VectorIndexerMod
 
   def this() = this(Identifiable.randomUID("vecIdx"))
 
-  /** @group setParam */
+  /**
+   * @group setParam 
+   */
   def setMaxCategories(value: Int): this.type = set(maxCategories, value)
 
-  /** @group setParam */
+  /**
+   * @group setParam 
+   */
   def setInputCol(value: String): this.type = set(inputCol, value)
 
-  /** @group setParam */
+  /**
+   * @group setParam 
+   */
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
   override def fit(dataset: DataFrame): VectorIndexerModel = {
@@ -339,10 +347,14 @@ class VectorIndexerModel private[ml] (
     f
   }
 
-  /** @group setParam */
+  /**
+   * @group setParam 
+   */
   def setInputCol(value: String): this.type = set(inputCol, value)
 
-  /** @group setParam */
+  /**
+   * @group setParam 
+   */
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
   override def transform(dataset: DataFrame): DataFrame = {

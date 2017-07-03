@@ -142,7 +142,6 @@ class Param[T](val parent: String, val name: String, val doc: String, val isVali
  */
 @DeveloperApi
 object ParamValidators {
-
   /** 
    * (private[param]) Default validation always return true 
    */
@@ -367,7 +366,6 @@ class FloatParam(parent: String, name: String, doc: String, isValid: Float => Bo
 }
 
 private object FloatParam {
-
   /** 
    * Encodes a param value into JValue. 
    */

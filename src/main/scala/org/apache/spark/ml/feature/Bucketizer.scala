@@ -56,16 +56,24 @@ final class Bucketizer(override val uid: String)
       "otherwise, values outside the splits specified will be treated as errors.",
     Bucketizer.checkSplits)
 
-  /** @group getParam */
+  /** 
+   * @group getParam 
+   */
   def getSplits: Array[Double] = $(splits)
 
-  /** @group setParam */
+  /** 
+   * @group setParam 
+   */
   def setSplits(value: Array[Double]): this.type = set(splits, value)
 
-  /** @group setParam */
+  /** 
+   * @group setParam 
+   */
   def setInputCol(value: String): this.type = set(inputCol, value)
 
-  /** @group setParam */
+  /** 
+   * @group setParam 
+   */
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
   override def transform(dataset: DataFrame): DataFrame = {
@@ -97,7 +105,9 @@ final class Bucketizer(override val uid: String)
 
 object Bucketizer extends DefaultParamsReadable[Bucketizer] {
 
-  /** We require splits to be of length >= 3 and to be in strictly increasing order. */
+  /** 
+   * We require splits to be of length >= 3 and to be in strictly increasing order. 
+   */
   private[feature] def checkSplits(splits: Array[Double]): Boolean = {
     if (splits.length < 3) {
       false

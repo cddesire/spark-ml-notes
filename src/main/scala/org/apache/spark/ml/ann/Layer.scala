@@ -178,11 +178,7 @@ private[ann] object AffineLayerModel {
    * @param numOut number of layer outputs
    * @return matrix A and vector b
    */
-  def unroll(
-    weights: Vector,
-    position: Int,
-    numIn: Int,
-    numOut: Int): (BDM[Double], BDV[Double]) = {
+  def unroll(weights: Vector, position: Int, numIn: Int, numOut: Int): (BDM[Double], BDV[Double]) = {
     val weightsCopy = weights.toArray
     // TODO: the array is not copied to BDMs, make sure this is OK!
     val a = new BDM[Double](numOut, numIn, weightsCopy, position)
@@ -276,11 +272,7 @@ private[ann] object ActivationFunction {
     }
   }
 
-  def apply(
-    x1: BDM[Double],
-    x2: BDM[Double],
-    y: BDM[Double],
-    func: (Double, Double) => Double): Unit = {
+  def apply(x1: BDM[Double], x2: BDM[Double], y: BDM[Double], func: (Double, Double) => Double): Unit = {
     var i = 0
     while (i < x1.rows) {
       var j = 0

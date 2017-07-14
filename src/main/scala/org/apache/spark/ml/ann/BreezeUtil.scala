@@ -60,4 +60,5 @@ private[ann] object BreezeUtil {
       alpha, a.data, a.offset, a.majorStride, x.data, x.offset, x.stride,
       beta, y.data, y.offset, y.stride)
   }
+  
 }

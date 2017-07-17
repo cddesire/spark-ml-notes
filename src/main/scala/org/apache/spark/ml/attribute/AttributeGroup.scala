@@ -95,9 +95,7 @@ class AttributeGroup private (
   def indexOf(attrName: String): Int = nameToIndex(attrName)
 
   /** Gets an attribute by its name. */
-  def apply(attrName: String): Attribute = {
-    attributes.get(indexOf(attrName))
-  }
+  def apply(attrName: String): Attribute = attributes.get(indexOf(attrName))
 
   /** Gets an attribute by its name. */
   def getAttr(attrName: String): Attribute = this(attrName)

@@ -68,4 +68,5 @@ private[mllib] object ClassificationModel {
     implicit val formats = DefaultFormats
     ((metadata \ "numFeatures").extract[Int], (metadata \ "numClasses").extract[Int])
   }
+  
 }

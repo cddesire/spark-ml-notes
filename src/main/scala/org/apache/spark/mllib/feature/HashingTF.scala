@@ -36,8 +36,6 @@ import org.apache.spark.util.Utils
 @Since("1.1.0")
 class HashingTF(val numFeatures: Int) extends Serializable {
 
-  /**
-   */
   @Since("1.1.0")
   def this() = this(1 << 20)
 

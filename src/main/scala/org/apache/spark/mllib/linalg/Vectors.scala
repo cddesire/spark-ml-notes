@@ -60,7 +60,9 @@ sealed trait Vector extends Serializable {
   override def equals(other: Any): Boolean = {
     other match {
       case v2: Vector =>
+        // 大小不相等
         if (this.size != v2.size) return false
+        // sparse or dense 比较
         (this, v2) match {
           case (s1: SparseVector, s2: SparseVector) =>
             Vectors.equals(s1.indices, s1.values, s2.indices, s2.values)
@@ -305,6 +307,7 @@ object Vectors {
     require(size > 0, "The size of the requested sparse vector must be greater than 0.")
 
     val (indices, values) = elements.sortBy(_._1).unzip
+    
     var prev = -1
     indices.foreach { i =>
       require(prev < i, s"Found duplicate indices: $i.")
@@ -721,6 +724,7 @@ class SparseVector @Since("1.0.0") (
 
   @Since("1.0.0")
   override def toArray: Array[Double] = {
+    // 默认用0.0填充
     val data = new Array[Double](size)
     var i = 0
     val nnz = indices.length
@@ -845,7 +849,6 @@ class SparseVector @Since("1.0.0") (
           maxIdx = k
         }
       }
-
       maxIdx
     }
   }
